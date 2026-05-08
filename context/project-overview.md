@@ -375,6 +375,14 @@ Payments handled via **Stripe**. During development, all users have access to Pr
 - Syntax highlighting for all code blocks
 - References: [Notion](https://notion.so), [Linear](https://linear.app), [Raycast](https://raycast.com)
 
+### Screenshots
+
+Refer to screenshots below as a base for the dashboard UI. It does not have to be exact. Use it as a reference:
+
+- @context/screenshots/dashboard-ui-main.png
+- @context/screenshots/dashboard-ui-drawer.png
+
+
 ### Layout
 
 ```
