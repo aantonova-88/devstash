@@ -1,11 +1,25 @@
-import { Search, Plus } from "lucide-react";
+"use client"
+
+import { Search, Plus, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function TopBar() {
+interface TopBarProps {
+  onMobileMenuClick?: () => void
+}
+
+export function TopBar({ onMobileMenuClick }: TopBarProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
       <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-8 w-8"
+          onClick={onMobileMenuClick}
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
         <span className="text-sm font-semibold tracking-tight">DevStash</span>
       </div>
 
