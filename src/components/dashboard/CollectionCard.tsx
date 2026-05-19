@@ -1,19 +1,48 @@
-import { Star, type LucideIcon } from "lucide-react"
+"use client"
+
+import {
+  Star,
+  Code,
+  Sparkles,
+  StickyNote,
+  Terminal,
+  Link as LucideLink,
+  File,
+  Image,
+  type LucideIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Code,
+  Sparkles,
+  StickyNote,
+  Terminal,
+  Link: LucideLink,
+  File,
+  Image,
+}
+
+interface TypeIcon {
+  icon: string
+  color: string
+  name: string
+}
 
 interface CollectionCardProps {
   collection: {
     name: string
+    description: string | null
     isFavorite: boolean
     itemCount: number
     dominantColor: string
-    updatedAt: string
+    updatedAt: Date | string
+    typeIcons?: TypeIcon[]
   }
-  icon: LucideIcon
 }
 
-function relativeTime(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
+function relativeTime(date: Date | string) {
+  const diff = Date.now() - new Date(date).getTime()
   const m = Math.floor(diff / 60000)
   if (m < 60) return `${m}m ago`
   const h = Math.floor(m / 60)
@@ -21,30 +50,49 @@ function relativeTime(dateStr: string) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-export function CollectionCard({ collection, icon: Icon }: CollectionCardProps) {
+export function CollectionCard({ collection }: CollectionCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors">
-      <div className="flex items-start justify-between">
-        <div
-          className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `${collection.dominantColor}25` }}
-        >
-          <Icon className="h-4 w-4" style={{ color: collection.dominantColor }} />
+    <div
+      className="rounded-lg border bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors"
+      style={{ borderColor: `${collection.dominantColor}50` }}
+    >
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold">{collection.name}</h3>
+          <Star
+            className={cn(
+              "h-4 w-4 shrink-0",
+              collection.isFavorite
+                ? "fill-yellow-400 text-yellow-400"
+                : "text-muted-foreground/30"
+            )}
+          />
         </div>
-        <Star
-          className={cn(
-            "h-4 w-4 shrink-0",
-            collection.isFavorite
-              ? "fill-yellow-400 text-yellow-400"
-              : "text-muted-foreground/30"
-          )}
-        />
-      </div>
-      <div>
-        <h3 className="text-sm font-semibold">{collection.name}</h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
+        {collection.typeIcons && collection.typeIcons.length > 0 && (
+          <div className="flex items-center gap-1">
+            {collection.typeIcons.map(({ icon, color, name }) => {
+              const TypeIcon = ICON_MAP[icon] ?? File
+              return (
+                <div
+                  key={name}
+                  className="h-5 w-5 rounded flex items-center justify-center"
+                  style={{ backgroundColor: `${color}20` }}
+                  title={name}
+                >
+                  <TypeIcon className="h-3 w-3" style={{ color }} />
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">
           {collection.itemCount} items · updated {relativeTime(collection.updatedAt)}
         </p>
+        {collection.description && (
+          <p className="text-[11px] text-muted-foreground/70 line-clamp-2">
+            {collection.description}
+          </p>
+        )}
       </div>
     </div>
   )
