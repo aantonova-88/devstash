@@ -13,7 +13,8 @@ import {
   Pin,
   type LucideIcon,
 } from "lucide-react"
-import { mockUser, mockItemTypes, mockItems, mockCollections } from "@/lib/mock-data"
+import { mockUser, mockItemTypes, mockItems } from "@/lib/mock-data"
+import { getRecentCollections } from "@/lib/db/collections"
 import { ItemCard } from "@/components/dashboard/ItemCard"
 import { CollectionCard } from "@/components/dashboard/CollectionCard"
 
@@ -25,12 +26,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Link: LucideLink,
   File,
   Image,
-}
-
-function resolveCollectionIcon(defaultTypeId: string | null | undefined): LucideIcon {
-  const type = mockItemTypes.find((t) => t.id === defaultTypeId)
-  if (!type) return FolderOpen
-  return ICON_MAP[type.icon] ?? FolderOpen
 }
 
 function relativeTime(dateStr: string) {
@@ -45,15 +40,9 @@ function relativeTime(dateStr: string) {
 const firstName = mockUser.name?.split(" ")[0] ?? "there"
 
 const totalItems = mockItemTypes.reduce((sum, t) => sum + t.count, 0)
-const totalCollections = mockCollections.length
 const favoriteItemsCount = mockItems.filter((i) => i.isFavorite).length
-const favoriteCollectionsCount = mockCollections.filter((c) => c.isFavorite).length
 
 const pinnedItems = mockItems.filter((i) => i.isPinned)
-
-const recentCollections = [...mockCollections].sort(
-  (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-)
 
 const recentItems = [...mockItems]
   .sort(
@@ -63,14 +52,19 @@ const recentItems = [...mockItems]
   )
   .slice(0, 10)
 
-const STATS = [
-  { label: "Total Items", value: totalItems, icon: Package },
-  { label: "Collections", value: totalCollections, icon: FolderOpen },
-  { label: "Favorite Items", value: favoriteItemsCount, icon: Star },
-  { label: "Favorite Collections", value: favoriteCollectionsCount, icon: Bookmark },
-]
+export default async function DashboardPage() {
+  const collections = await getRecentCollections()
 
-export default function DashboardPage() {
+  const totalCollections = collections.length
+  const favoriteCollectionsCount = collections.filter((c) => c.isFavorite).length
+
+  const STATS = [
+    { label: "Total Items", value: totalItems, icon: Package },
+    { label: "Collections", value: totalCollections, icon: FolderOpen },
+    { label: "Favorite Items", value: favoriteItemsCount, icon: Star },
+    { label: "Favorite Collections", value: favoriteCollectionsCount, icon: Bookmark },
+  ]
+
   return (
     <main className="flex-1 overflow-auto p-6 space-y-8">
         {/* Welcome */}
@@ -123,7 +117,7 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* Recent Collections */}
+        {/* Collections */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -135,12 +129,8 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentCollections.map((col) => (
-              <CollectionCard
-                key={col.id}
-                collection={col}
-                icon={resolveCollectionIcon(col.defaultTypeId)}
-              />
+            {collections.map((col) => (
+              <CollectionCard key={col.id} collection={col} />
             ))}
           </div>
         </section>
