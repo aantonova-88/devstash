@@ -15,12 +15,16 @@ import {
   Settings,
   Plus,
   ChevronRight,
+  Star,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import { mockUser, mockItemTypes, mockCollections } from "@/lib/mock-data"
+import { mockUser } from "@/lib/mock-data"
+import type { SidebarItemType } from "@/lib/db/items"
+import type { CollectionWithMeta } from "@/lib/db/collections"
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Code,
@@ -107,10 +111,11 @@ interface CollectionItemProps {
   name: string
   color: string
   count: number
+  isFavorite: boolean
   collapsed: boolean
 }
 
-function CollectionItem({ id, name, color, count, collapsed }: CollectionItemProps) {
+function CollectionItem({ id, name, color, count, isFavorite, collapsed }: CollectionItemProps) {
   const pathname = usePathname()
   const href = `/collections/${id}`
   const isActive = pathname === href
@@ -122,7 +127,9 @@ function CollectionItem({ id, name, color, count, collapsed }: CollectionItemPro
     collapsed ? "justify-center w-8 mx-auto" : "px-2 w-full"
   )
 
-  const dot = (
+  const indicator = isFavorite ? (
+    <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+  ) : (
     <span
       className="h-2 w-2 rounded-full shrink-0"
       style={{ backgroundColor: color }}
@@ -133,7 +140,7 @@ function CollectionItem({ id, name, color, count, collapsed }: CollectionItemPro
     return (
       <Tooltip>
         <TooltipTrigger render={<Link href={href} className={linkClasses} />}>
-          {dot}
+          {indicator}
         </TooltipTrigger>
         <TooltipContent side="right">{name}</TooltipContent>
       </Tooltip>
@@ -142,7 +149,7 @@ function CollectionItem({ id, name, color, count, collapsed }: CollectionItemPro
 
   return (
     <Link href={href} className={linkClasses}>
-      {dot}
+      {indicator}
       <span className="flex-1 truncate">{name}</span>
       <span className="text-xs tabular-nums text-sidebar-foreground/40">{count}</span>
     </Link>
@@ -203,16 +210,18 @@ function SectionHeader({
 function SidebarInner({
   collapsed,
   onToggleCollapse,
+  itemTypes,
+  collections,
 }: {
   collapsed: boolean
   onToggleCollapse: () => void
+  itemTypes: SidebarItemType[]
+  collections: CollectionWithMeta[]
 }) {
   const [collectionsOpen, setCollectionsOpen] = useState(true)
 
-  const favoriteCollections = mockCollections.filter((c) => c.isFavorite)
-  const recentCollections = mockCollections
-    .filter((c) => !c.isFavorite)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  const favoriteCollections = collections.filter((c) => c.isFavorite)
+  const recentCollections = collections.filter((c) => !c.isFavorite)
 
   const initials = getInitials(mockUser.name ?? "U")
 
@@ -262,7 +271,7 @@ function SidebarInner({
         <section>
           {!collapsed && <SectionHeader label="Item Types" showPlus />}
           <div className="space-y-0.5">
-            {mockItemTypes.map((type) => {
+            {itemTypes.map((type) => {
               const isPro = type.category === "FILE"
               return (
                 <NavItem
@@ -307,6 +316,7 @@ function SidebarInner({
                         name={col.name}
                         color={col.dominantColor}
                         count={col.itemCount}
+                        isFavorite
                         collapsed={collapsed}
                       />
                     ))}
@@ -326,10 +336,19 @@ function SidebarInner({
                         name={col.name}
                         color={col.dominantColor}
                         count={col.itemCount}
+                        isFavorite={false}
                         collapsed={collapsed}
                       />
                     ))}
                   </>
+                )}
+                {!collapsed && (
+                  <Link
+                    href="/collections"
+                    className="flex items-center gap-2.5 px-2 h-7 mt-1 text-xs text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors rounded-md hover:bg-sidebar-accent"
+                  >
+                    View all collections
+                  </Link>
                 )}
               </div>
             )}
@@ -372,6 +391,8 @@ export interface SidebarProps {
   onToggleCollapse: () => void
   mobileOpen: boolean
   onMobileOpenChange: (open: boolean) => void
+  itemTypes: SidebarItemType[]
+  collections: CollectionWithMeta[]
 }
 
 export function Sidebar({
@@ -379,6 +400,8 @@ export function Sidebar({
   onToggleCollapse,
   mobileOpen,
   onMobileOpenChange,
+  itemTypes,
+  collections,
 }: SidebarProps) {
   return (
     <>
@@ -390,7 +413,12 @@ export function Sidebar({
           collapsed ? "w-14" : "w-60"
         )}
       >
-        <SidebarInner collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
+        <SidebarInner
+          collapsed={collapsed}
+          onToggleCollapse={onToggleCollapse}
+          itemTypes={itemTypes}
+          collections={collections}
+        />
       </aside>
 
       {/* Mobile drawer */}
@@ -404,6 +432,8 @@ export function Sidebar({
           <SidebarInner
             collapsed={false}
             onToggleCollapse={() => onMobileOpenChange(false)}
+            itemTypes={itemTypes}
+            collections={collections}
           />
         </SheetContent>
       </Sheet>
