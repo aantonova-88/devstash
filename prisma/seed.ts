@@ -9,11 +9,11 @@ const prisma = new PrismaClient({ adapter });
 const systemTypes = [
   { name: "Snippet", slug: "snippets", icon: "Code",       color: "#3b82f6", category: ContentCategory.TEXT, order: 0 },
   { name: "Prompt",  slug: "prompts",  icon: "Sparkles",   color: "#8b5cf6", category: ContentCategory.TEXT, order: 1 },
-  { name: "Note",    slug: "notes",    icon: "StickyNote", color: "#fde047", category: ContentCategory.TEXT, order: 2 },
-  { name: "Command", slug: "commands", icon: "Terminal",   color: "#f97316", category: ContentCategory.TEXT, order: 3 },
-  { name: "Link",    slug: "links",    icon: "Link",       color: "#10b981", category: ContentCategory.URL,  order: 4 },
-  { name: "File",    slug: "files",    icon: "File",       color: "#6b7280", category: ContentCategory.FILE, order: 5 },
-  { name: "Image",   slug: "images",   icon: "Image",      color: "#ec4899", category: ContentCategory.FILE, order: 6 },
+  { name: "Command", slug: "commands", icon: "Terminal",   color: "#f97316", category: ContentCategory.TEXT, order: 2 },
+  { name: "Note",    slug: "notes",    icon: "StickyNote", color: "#fde047", category: ContentCategory.TEXT, order: 3 },
+  { name: "File",    slug: "files",    icon: "File",       color: "#6b7280", category: ContentCategory.FILE, order: 4 },
+  { name: "Image",   slug: "images",   icon: "Image",      color: "#ec4899", category: ContentCategory.FILE, order: 5 },
+  { name: "Link",    slug: "links",    icon: "Link",       color: "#10b981", category: ContentCategory.URL,  order: 6 },
 ];
 
 async function main() {
@@ -53,7 +53,7 @@ async function main() {
 
   // React Patterns — 3 snippets
   const reactPatterns = await prisma.collection.create({
-    data: { name: "React Patterns", description: "Reusable React patterns and hooks", userId: user.id },
+    data: { name: "React Patterns", description: "Reusable React patterns and hooks", isFavorite: true, userId: user.id },
   });
   const reactItems = await Promise.all([
     prisma.item.create({ data: {
@@ -166,7 +166,7 @@ export function slugify(str: string): string {
 
   // AI Workflows — 3 prompts
   const aiWorkflows = await prisma.collection.create({
-    data: { name: "AI Workflows", description: "AI prompts and workflow automations", userId: user.id },
+    data: { name: "AI Workflows", description: "AI prompts and workflow automations", isFavorite: true, userId: user.id },
   });
   const aiItems = await Promise.all([
     prisma.item.create({ data: {
@@ -242,7 +242,7 @@ Original code:
 
   // DevOps — 1 snippet, 1 command, 2 links
   const devops = await prisma.collection.create({
-    data: { name: "DevOps", description: "Infrastructure and deployment resources", userId: user.id },
+    data: { name: "DevOps", description: "Infrastructure and deployment resources", isFavorite: true, userId: user.id },
   });
   const devopsItems = await Promise.all([
     prisma.item.create({ data: {

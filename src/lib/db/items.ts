@@ -2,6 +2,16 @@ import { prisma } from "@/lib/prisma"
 
 const DEMO_USER_EMAIL = "demo@devstash.io"
 
+export interface SidebarItemType {
+  id: string
+  name: string
+  slug: string
+  icon: string
+  color: string
+  category: string
+  count: number
+}
+
 export interface ItemWithMeta {
   id: string
   title: string
@@ -84,6 +94,36 @@ export async function getRecentItems(limit = 10): Promise<ItemWithMeta[]> {
   })
 
   return items.map(serializeItem)
+}
+
+export async function getSystemItemTypes(): Promise<SidebarItemType[]> {
+  const [types, user] = await Promise.all([
+    prisma.itemType.findMany({
+      where: { isSystem: true },
+      orderBy: { order: "asc" },
+    }),
+    getDemoUser(),
+  ])
+
+  if (!user) return types.map((t) => ({ ...t, count: 0 }))
+
+  const counts = await prisma.item.groupBy({
+    by: ["typeId"],
+    where: { userId: user.id },
+    _count: true,
+  })
+
+  const countMap = new Map(counts.map((c) => [c.typeId, c._count]))
+
+  return types.map((t) => ({
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    icon: t.icon,
+    color: t.color,
+    category: t.category,
+    count: countMap.get(t.id) ?? 0,
+  }))
 }
 
 export async function getItemStats(): Promise<ItemStats> {
