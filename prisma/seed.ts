@@ -60,6 +60,7 @@ async function main() {
       title: "useDebounce & useLocalStorage hooks",
       description: "Custom hooks for debouncing values and persisting state to localStorage",
       language: "typescript",
+      isPinned: true,
       userId: user.id,
       typeId: typeMap.snippets,
       content: `import { useEffect, useState } from "react";
@@ -171,6 +172,7 @@ export function slugify(str: string): string {
     prisma.item.create({ data: {
       title: "Code Review Prompt",
       description: "Structured code review with prioritised feedback",
+      isPinned: true,
       userId: user.id,
       typeId: typeMap.prompts,
       content: `Review the following code and provide structured feedback.
