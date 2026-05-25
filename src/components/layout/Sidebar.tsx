@@ -4,37 +4,21 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link as LucideLink,
   File,
-  Image,
   PanelLeftClose,
   Settings,
   Plus,
   ChevronRight,
   Star,
-  FolderOpen,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ICON_MAP } from "@/lib/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { mockUser } from "@/lib/mock-data"
 import type { SidebarItemType } from "@/lib/db/items"
 import type { CollectionWithMeta } from "@/lib/db/collections"
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link: LucideLink,
-  File,
-  Image,
-}
 
 
 function getInitials(name: string) {

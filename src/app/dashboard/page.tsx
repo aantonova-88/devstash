@@ -1,41 +1,18 @@
 import {
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link as LucideLink,
-  File,
-  Image,
   Package,
   FolderOpen,
   Star,
   Bookmark,
   Pin,
-  type LucideIcon,
+  File,
 } from "lucide-react"
 import { getPinnedItems, getRecentItems, getItemStats } from "@/lib/db/items"
 import { getRecentCollections } from "@/lib/db/collections"
+import { relativeTime } from "@/lib/utils"
+import { ICON_MAP } from "@/lib/icons"
 import { ItemCard } from "@/components/dashboard/ItemCard"
 import { CollectionCard } from "@/components/dashboard/CollectionCard"
 
-const ICON_MAP: Record<string, LucideIcon> = {
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link: LucideLink,
-  File,
-  Image,
-}
-
-function relativeTime(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
 
 export default async function DashboardPage() {
   const [collections, pinnedItems, recentItems, itemStats] = await Promise.all([

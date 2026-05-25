@@ -1,27 +1,6 @@
-"use client"
-
-import {
-  Star,
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link as LucideLink,
-  File,
-  Image,
-  type LucideIcon,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-
-const ICON_MAP: Record<string, LucideIcon> = {
-  Code,
-  Sparkles,
-  StickyNote,
-  Terminal,
-  Link: LucideLink,
-  File,
-  Image,
-}
+import { Star, File } from "lucide-react"
+import { cn, relativeTime } from "@/lib/utils"
+import { ICON_MAP } from "@/lib/icons"
 
 interface TypeIcon {
   icon: string
@@ -41,14 +20,6 @@ interface CollectionCardProps {
   }
 }
 
-function relativeTime(date: Date | string) {
-  const diff = Date.now() - new Date(date).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
 
 export function CollectionCard({ collection }: CollectionCardProps) {
   return (
