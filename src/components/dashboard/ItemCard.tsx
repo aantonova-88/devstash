@@ -1,4 +1,5 @@
-import { type LucideIcon, Copy } from "lucide-react"
+import { type LucideIcon } from "lucide-react"
+import { relativeTime } from "@/lib/utils"
 
 interface ItemCardProps {
   item: {
@@ -13,14 +14,6 @@ interface ItemCardProps {
   icon: LucideIcon
 }
 
-function relativeTime(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
-}
 
 export function ItemCard({ item, icon: Icon }: ItemCardProps) {
   return (
@@ -52,14 +45,9 @@ export function ItemCard({ item, icon: Icon }: ItemCardProps) {
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground shrink-0 ml-2">
-          <button className="hover:text-foreground transition-colors">
-            <Copy className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-[11px]">
-            {relativeTime(item.lastUsedAt ?? item.updatedAt)}
-          </span>
-        </div>
+        <span className="text-[11px] text-muted-foreground shrink-0 ml-2">
+          {relativeTime(item.lastUsedAt ?? item.updatedAt)}
+        </span>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 
 const DEMO_USER_EMAIL = "demo@devstash.io"
@@ -32,12 +33,12 @@ export interface ItemStats {
   userName: string | null
 }
 
-async function getDemoUser() {
-  return prisma.user.findUnique({
+const getDemoUser = cache(() =>
+  prisma.user.findUnique({
     where: { email: DEMO_USER_EMAIL },
     select: { id: true, name: true },
   })
-}
+)
 
 function serializeItem(item: {
   id: string
