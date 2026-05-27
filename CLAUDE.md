@@ -22,3 +22,10 @@ npm run build    # production build
 npm run lint     # run ESLint
 ```
 
+## Neon MCP
+
+- Project: **devstash** (`divine-haze-48598846`)
+- Default branch: **development** (`br-sweet-cloud-aqsygva4`)
+- **Never query or modify the production branch** (`br-polished-recipe-aqepfi1f`) unless explicitly told to
+- Always pass `projectId: divine-haze-48598846` and `branchId: br-sweet-cloud-aqsygva4` to all Neon MCP tool calls
+
