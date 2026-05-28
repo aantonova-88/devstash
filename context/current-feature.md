@@ -1,24 +1,16 @@
-# Current Feature: Auth Phase 2 - Email/Password Credentials
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Add Credentials provider for email/password authentication
-- Add password field to User model via migration (if not already present)
-- Update `auth.config.ts` with Credentials provider placeholder (`authorize: () => null`)
-- Update `auth.ts` to override Credentials provider with bcrypt validation
-- Create `POST /api/auth/register` route: accept name/email/password/confirmPassword, validate, hash with bcryptjs, create user
-- Verify GitHub OAuth still works after changes
+None
 
 ## Notes
 
-- Use `bcryptjs` for hashing (already installed)
-- Split config pattern: placeholder in `auth.config.ts`, real bcrypt logic in `auth.ts`
-- Registration endpoint returns success/error response JSON
-- Test: curl registration, sign in via `/api/auth/signin`, verify redirect to `/dashboard`
+None
 
 ## History
 
@@ -33,3 +25,4 @@ In Progress
 - **Stats & Sidebar** - Added `getSystemItemTypes()` to `src/lib/db/items.ts` with per-user counts; sidebar now receives real item types and collections as props from async `DashboardLayout`; favorite collections show a star icon, recents show a colored circle based on dominant item type; added "View all collections" link; reordered item types to: Snippets, Prompts, Commands, Notes, Files, Images, Links; React Patterns, AI Workflows, and DevOps marked as favorites (Completed)
 - **Code Quality & Performance Quick Wins** - Wrapped `getDemoUser` and `getRecentCollections` with React `cache()` to eliminate duplicate DB queries per request; removed unnecessary `"use client"` from `CollectionCard`; extracted `relativeTime()` to `src/lib/utils.ts` and `ICON_MAP` to `src/lib/icons.ts`, removing 3 duplicate definitions each; removed non-functional Copy button from `ItemCard` (Completed)
 - **Auth Phase 1 - NextAuth + GitHub Provider** - Installed `next-auth@beta` and `@auth/prisma-adapter`; split auth config pattern (`auth.config.ts` for edge, `auth.ts` with PrismaAdapter); GitHub OAuth provider; `/dashboard/*` protected via `src/proxy.ts` with redirect to sign-in; `Session` type extended with `user.id`; `.nvmrc` added to pin Node 20 (required by Prisma 7) (Completed)
+- **Auth Phase 2 - Email/Password Credentials** - Added Credentials provider to NextAuth split-config (`auth.config.ts` placeholder, `auth.ts` with bcrypt validation); created `POST /api/auth/register` with input validation, bcrypt hashing (cost 12), and duplicate email check; GitHub OAuth unaffected (Completed)
