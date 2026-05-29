@@ -1,22 +1,16 @@
-# Current Feature: Auth UI - Sign In, Register & Sign Out
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Custom `/sign-in` page with email/password fields, GitHub OAuth button, and link to register
-- Custom `/register` page with name, email, password, confirm password fields and validation
-- Register form submits to `/api/auth/register` and redirects to sign-in on success
-- Sidebar bottom shows user avatar (GitHub image or initials fallback), user name, and sign-out dropdown
+None
 
 ## Notes
 
-- Avatar logic: use `image` field if present (GitHub OAuth), otherwise generate initials from name (e.g., "Brad Traversy" → "BT")
-- Create a reusable avatar component that handles both image and initials cases
-- Dropdown on avatar click includes "Sign out" link; clicking the icon navigates to `/profile`
-- NextAuth pages config must point to `/sign-in` instead of the default `/api/auth/signin`
+None
 
 ## History
 
@@ -32,3 +26,4 @@ In Progress
 - **Code Quality & Performance Quick Wins** - Wrapped `getDemoUser` and `getRecentCollections` with React `cache()` to eliminate duplicate DB queries per request; removed unnecessary `"use client"` from `CollectionCard`; extracted `relativeTime()` to `src/lib/utils.ts` and `ICON_MAP` to `src/lib/icons.ts`, removing 3 duplicate definitions each; removed non-functional Copy button from `ItemCard` (Completed)
 - **Auth Phase 1 - NextAuth + GitHub Provider** - Installed `next-auth@beta` and `@auth/prisma-adapter`; split auth config pattern (`auth.config.ts` for edge, `auth.ts` with PrismaAdapter); GitHub OAuth provider; `/dashboard/*` protected via `src/proxy.ts` with redirect to sign-in; `Session` type extended with `user.id`; `.nvmrc` added to pin Node 20 (required by Prisma 7) (Completed)
 - **Auth Phase 2 - Email/Password Credentials** - Added Credentials provider to NextAuth split-config (`auth.config.ts` placeholder, `auth.ts` with bcrypt validation); created `POST /api/auth/register` with input validation, bcrypt hashing (cost 12), and duplicate email check; GitHub OAuth unaffected (Completed)
+- **Auth Phase 3 - Auth UI** - Custom `/sign-in` page (email/password + GitHub OAuth button) and `/register` page (name, email, password, confirm); register redirects to sign-in with Sonner toast; NextAuth `pages.signIn` points to `/sign-in`; JWT/session callbacks populate `user.id`; sidebar user area replaced mock data with real session — `UserAvatar` component (GitHub image or initials fallback), user name/email, sign-out dropdown via React portal; `avatars.githubusercontent.com` added to `next.config.ts` image remotePatterns (Completed)
