@@ -14,8 +14,19 @@ export default {
       authorize: () => null,
     }),
   ],
+  pages: {
+    signIn: "/sign-in",
+  },
   session: { strategy: "jwt" },
   callbacks: {
+    jwt({ token, user }) {
+      if (user) token.id = user.id
+      return token
+    },
+    session({ session, token }) {
+      if (token.id) session.user.id = token.id as string
+      return session
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")

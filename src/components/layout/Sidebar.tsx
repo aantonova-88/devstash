@@ -1,12 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 import {
   File,
   PanelLeftClose,
-  Settings,
+  LogOut,
+  User,
   Plus,
   ChevronRight,
   Star,
@@ -16,18 +19,15 @@ import { cn } from "@/lib/utils"
 import { ICON_MAP } from "@/lib/icons"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import { mockUser } from "@/lib/mock-data"
+import { UserAvatar } from "@/components/ui/user-avatar"
 import type { SidebarItemType } from "@/lib/db/items"
 import type { CollectionWithMeta } from "@/lib/db/collections"
 
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
+export interface SidebarUser {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
 }
 
 // ── Nav Item ────────────────────────────────────────────
@@ -189,6 +189,115 @@ function SectionHeader({
   )
 }
 
+// ── User Menu ───────────────────────────────────────────
+
+function UserMenu({ user, collapsed }: { user: SidebarUser; collapsed: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
+
+  function handleToggle() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setMenuPos({ top: rect.top, left: rect.left, width: rect.width })
+    }
+    setOpen((v) => !v)
+  }
+
+  function handleSignOut() {
+    setOpen(false)
+    signOut({ callbackUrl: "/sign-in" })
+  }
+
+  const dropdownMenu = open && menuPos && createPortal(
+    <div
+      ref={menuRef}
+      style={{
+        position: "fixed",
+        top: menuPos.top - 8,
+        left: collapsed ? menuPos.left + 40 : menuPos.left,
+        width: collapsed ? 176 : Math.max(menuPos.width, 176),
+        transform: "translateY(-100%)",
+        zIndex: 9999,
+      }}
+      className="rounded-lg border border-sidebar-border bg-popover text-popover-foreground shadow-md py-1"
+    >
+      <Link
+        href="/profile"
+        onClick={() => setOpen(false)}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+      >
+        <User className="h-3.5 w-3.5" />
+        Profile
+      </Link>
+      <button
+        onClick={handleSignOut}
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-sm hover:bg-accent transition-colors text-left"
+      >
+        <LogOut className="h-3.5 w-3.5" />
+        Sign out
+      </button>
+    </div>,
+    document.body
+  )
+
+  const avatar = (
+    <UserAvatar
+      name={user.name}
+      image={user.image}
+      size={32}
+      className="shrink-0 ring-2 ring-sidebar-border"
+    />
+  )
+
+  if (collapsed) {
+    return (
+      <>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button ref={triggerRef} onClick={handleToggle} className="cursor-pointer" />
+            }
+          >
+            {avatar}
+          </TooltipTrigger>
+          <TooltipContent side="right">{user.name ?? user.email}</TooltipContent>
+        </Tooltip>
+        {dropdownMenu}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <button ref={triggerRef} onClick={handleToggle} className="cursor-pointer">
+        {avatar}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium truncate leading-tight">{user.name ?? "User"}</p>
+        <p className="text-[11px] text-sidebar-foreground/50 truncate leading-tight">
+          {user.email}
+        </p>
+      </div>
+      {dropdownMenu}
+    </>
+  )
+}
+
 // ── Sidebar Inner ───────────────────────────────────────
 
 function SidebarInner({
@@ -196,18 +305,18 @@ function SidebarInner({
   onToggleCollapse,
   itemTypes,
   collections,
+  user,
 }: {
   collapsed: boolean
   onToggleCollapse: () => void
   itemTypes: SidebarItemType[]
   collections: CollectionWithMeta[]
+  user: SidebarUser
 }) {
   const [collectionsOpen, setCollectionsOpen] = useState(true)
 
   const favoriteCollections = collections.filter((c) => c.isFavorite)
   const recentCollections = collections.filter((c) => !c.isFavorite)
-
-  const initials = getInitials(mockUser.name ?? "U")
 
   return (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
@@ -347,22 +456,7 @@ function SidebarInner({
           collapsed ? "flex justify-center" : "flex items-center gap-2.5"
         )}
       >
-        <div className="h-8 w-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground text-xs font-semibold shrink-0 ring-2 ring-sidebar-border">
-          {initials}
-        </div>
-        {!collapsed && (
-          <>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate leading-tight">{mockUser.name}</p>
-              <p className="text-[11px] text-sidebar-foreground/50 truncate leading-tight">
-                {mockUser.email}
-              </p>
-            </div>
-            <button className="text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors">
-              <Settings className="h-4 w-4" />
-            </button>
-          </>
-        )}
+        <UserMenu user={user} collapsed={collapsed} />
       </div>
     </div>
   )
@@ -377,6 +471,7 @@ export interface SidebarProps {
   onMobileOpenChange: (open: boolean) => void
   itemTypes: SidebarItemType[]
   collections: CollectionWithMeta[]
+  user: SidebarUser
 }
 
 export function Sidebar({
@@ -386,6 +481,7 @@ export function Sidebar({
   onMobileOpenChange,
   itemTypes,
   collections,
+  user,
 }: SidebarProps) {
   return (
     <>
@@ -402,6 +498,7 @@ export function Sidebar({
           onToggleCollapse={onToggleCollapse}
           itemTypes={itemTypes}
           collections={collections}
+          user={user}
         />
       </aside>
 
@@ -418,6 +515,7 @@ export function Sidebar({
             onToggleCollapse={() => onMobileOpenChange(false)}
             itemTypes={itemTypes}
             collections={collections}
+            user={user}
           />
         </SheetContent>
       </Sheet>
