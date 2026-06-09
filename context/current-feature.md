@@ -1,29 +1,16 @@
-# Current Feature: Email Verification on Register
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- New users registering via email/password must verify their email before they can sign in
-- Send verification email via Resend on successful registration using `RESEND_API_KEY` from `.env`
-- Email contains a unique, single-use verification link that expires after a reasonable window (e.g., 24 hours)
-- Clicking the link verifies the user (sets `User.emailVerified`) and redirects to sign-in with a success toast
-- Block sign-in for users with unverified emails; show a clear error and option to resend the verification email
-- GitHub OAuth users are auto-verified (NextAuth sets `emailVerified` on first sign-in) — no behavior change there
-- Handle expired/invalid/already-used tokens gracefully with user-friendly messages
+None
 
 ## Notes
 
-- Stack: NextAuth v5, Prisma 7 + Neon, Next.js 16 App Router
-- `RESEND_API_KEY` is already present in `.env`; install `resend` package
-- Use Prisma's existing `VerificationToken` model (already in schema for NextAuth) to store the token + expiry
-- Verification link route: `GET /api/auth/verify-email?token=...` (or a route handler under `/verify-email`)
-- Resend email: simple HTML template with brand-consistent styling; needs a sender domain/identity (use `onboarding@resend.dev` in development if no verified domain yet)
-- Update `POST /api/auth/register` to generate token + send email after creating the user
-- Update Credentials provider `authorize()` in `auth.ts` to reject sign-in when `emailVerified` is null
-- Add a "Resend verification email" action (button on sign-in error or dedicated page)
+None
 
 ## History
 
@@ -40,3 +27,4 @@ In Progress
 - **Auth Phase 1 - NextAuth + GitHub Provider** - Installed `next-auth@beta` and `@auth/prisma-adapter`; split auth config pattern (`auth.config.ts` for edge, `auth.ts` with PrismaAdapter); GitHub OAuth provider; `/dashboard/*` protected via `src/proxy.ts` with redirect to sign-in; `Session` type extended with `user.id`; `.nvmrc` added to pin Node 20 (required by Prisma 7) (Completed)
 - **Auth Phase 2 - Email/Password Credentials** - Added Credentials provider to NextAuth split-config (`auth.config.ts` placeholder, `auth.ts` with bcrypt validation); created `POST /api/auth/register` with input validation, bcrypt hashing (cost 12), and duplicate email check; GitHub OAuth unaffected (Completed)
 - **Auth Phase 3 - Auth UI** - Custom `/sign-in` page (email/password + GitHub OAuth button) and `/register` page (name, email, password, confirm); register redirects to sign-in with Sonner toast; NextAuth `pages.signIn` points to `/sign-in`; JWT/session callbacks populate `user.id`; sidebar user area replaced mock data with real session — `UserAvatar` component (GitHub image or initials fallback), user name/email, sign-out dropdown via React portal; `avatars.githubusercontent.com` added to `next.config.ts` image remotePatterns (Completed)
+- **Email Verification on Register** - Added `resend` dep + `src/lib/email.ts` (branded HTML/text template) and `src/lib/verification.ts` (32-byte hex token, 24h TTL, atomic verify-and-delete in `prisma.$transaction`); `POST /api/auth/register` issues a verification email; `GET /api/auth/verify-email` consumes the token and redirects to `/sign-in?verified=1` / `?verify=expired` / `?verify=invalid`; `POST /api/auth/resend-verification` rotates the token for unverified users and returns 200 unconditionally to avoid user-existence leak; Credentials `authorize()` throws `EmailNotVerifiedError extends CredentialsSignin` with `code = "email_not_verified"`; sign-in form detects the code and renders a "Resend verification email" panel; new `/verify-email` "Check your email" page replaces the registered-toast redirect. Also refactored dashboard data layer (`getPinnedItems`, `getRecentItems`, `getSystemItemTypes`, `getItemStats`, `getRecentCollections`) to take `userId` and scoped the dashboard to `session.user.id` instead of the hardcoded demo user. Added `scripts/delete-non-demo-users.ts` maintenance script (dry-run by default, `--yes` to apply) (Completed)
