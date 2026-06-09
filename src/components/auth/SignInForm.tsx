@@ -19,11 +19,29 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(
     urlError === "CredentialsSignin" ? "Invalid email or password." : null
   )
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (searchParams.get("registered") === "1") {
-      toast.success("Account created! You can now sign in.", { id: "registered" })
+    if (searchParams.get("verified") === "1") {
+      toast.success("Email verified! You can now sign in.", { id: "verified" })
+      router.replace("/sign-in", { scroll: false })
+      return
+    }
+    const verify = searchParams.get("verify")
+    if (verify === "expired") {
+      toast.error("That verification link has expired. Request a new one below.", {
+        id: "verify-expired",
+        duration: 6000,
+      })
+      router.replace("/sign-in", { scroll: false })
+    } else if (verify === "invalid") {
+      toast.error("That verification link is invalid or already used.", {
+        id: "verify-invalid",
+        duration: 6000,
+      })
       router.replace("/sign-in", { scroll: false })
     }
   }, [])
@@ -31,6 +49,8 @@ export function SignInForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setNeedsVerification(false)
+    setResent(false)
     setLoading(true)
 
     const result = await signIn("credentials", {
@@ -42,12 +62,33 @@ export function SignInForm() {
     setLoading(false)
 
     if (result?.error) {
-      setError("Invalid email or password.")
+      if (result.code === "email_not_verified") {
+        setNeedsVerification(true)
+        setError("Please verify your email before signing in.")
+      } else {
+        setError("Invalid email or password.")
+      }
       return
     }
 
     router.push(callbackUrl)
     router.refresh()
+  }
+
+  async function handleResend() {
+    if (!email) {
+      setError("Enter your email above first.")
+      return
+    }
+    setResending(true)
+    await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    }).catch(() => {})
+    setResending(false)
+    setResent(true)
+    toast.success("If an unverified account exists for that email, we just sent a new link.")
   }
 
   async function handleGitHub() {
@@ -93,6 +134,22 @@ export function SignInForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <p className="text-sm text-destructive text-center">{error}</p>
+        )}
+        {needsVerification && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-center text-sm space-y-2">
+            <p className="text-muted-foreground">
+              We sent a verification link to your email. Didn&apos;t get it?
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResend}
+              disabled={resending || resent}
+            >
+              {resending ? "Sending…" : resent ? "Sent" : "Resend verification email"}
+            </Button>
+          </div>
         )}
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">

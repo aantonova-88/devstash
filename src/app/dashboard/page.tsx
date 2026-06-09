@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import {
   Package,
   FolderOpen,
@@ -6,6 +7,7 @@ import {
   Pin,
   File,
 } from "lucide-react"
+import { auth } from "@/auth"
 import { getPinnedItems, getRecentItems, getItemStats } from "@/lib/db/items"
 import { getRecentCollections } from "@/lib/db/collections"
 import { relativeTime } from "@/lib/utils"
@@ -15,15 +17,19 @@ import { CollectionCard } from "@/components/dashboard/CollectionCard"
 
 
 export default async function DashboardPage() {
+  const session = await auth()
+  if (!session?.user?.id) redirect("/sign-in")
+
+  const userId = session.user.id
   const [collections, pinnedItems, recentItems, itemStats] = await Promise.all([
-    getRecentCollections(),
-    getPinnedItems(),
-    getRecentItems(10),
-    getItemStats(),
+    getRecentCollections(userId),
+    getPinnedItems(userId),
+    getRecentItems(userId, 10),
+    getItemStats(userId),
   ])
 
-  const { totalItems, favoriteItemsCount, userName } = itemStats
-  const firstName = userName?.split(" ")[0] ?? "there"
+  const { totalItems, favoriteItemsCount } = itemStats
+  const firstName = session.user.name?.split(" ")[0] ?? "there"
   const totalCollections = collections.length
   const favoriteCollectionsCount = collections.filter((c) => c.isFavorite).length
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { getBaseUrl, issueVerificationEmail } from "@/lib/verification"
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,16 @@ export async function POST(request: Request) {
       data: { name, email, password: hashed },
       select: { id: true, name: true, email: true },
     })
+
+    try {
+      await issueVerificationEmail({
+        email: user.email,
+        name: user.name,
+        baseUrl: getBaseUrl(request),
+      })
+    } catch (err) {
+      console.error("Failed to send verification email", err)
+    }
 
     return NextResponse.json({ success: true, user }, { status: 201 })
   } catch {

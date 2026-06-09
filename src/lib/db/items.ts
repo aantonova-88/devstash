@@ -1,7 +1,4 @@
-import { cache } from "react"
 import { prisma } from "@/lib/prisma"
-
-const DEMO_USER_EMAIL = "demo@devstash.io"
 
 export interface SidebarItemType {
   id: string
@@ -30,15 +27,7 @@ export interface ItemWithMeta {
 export interface ItemStats {
   totalItems: number
   favoriteItemsCount: number
-  userName: string | null
 }
-
-const getDemoUser = cache(() =>
-  prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true, name: true },
-  })
-)
 
 function serializeItem(item: {
   id: string
@@ -61,12 +50,9 @@ function serializeItem(item: {
   }
 }
 
-export async function getPinnedItems(): Promise<ItemWithMeta[]> {
-  const user = await getDemoUser()
-  if (!user) return []
-
+export async function getPinnedItems(userId: string): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
-    where: { userId: user.id, isPinned: true },
+    where: { userId, isPinned: true },
     include: {
       type: { select: { name: true, icon: true, color: true } },
       tags: { include: { tag: { select: { name: true } } } },
@@ -77,12 +63,9 @@ export async function getPinnedItems(): Promise<ItemWithMeta[]> {
   return items.map(serializeItem)
 }
 
-export async function getRecentItems(limit = 10): Promise<ItemWithMeta[]> {
-  const user = await getDemoUser()
-  if (!user) return []
-
+export async function getRecentItems(userId: string, limit = 10): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
-    where: { userId: user.id },
+    where: { userId },
     include: {
       type: { select: { name: true, icon: true, color: true } },
       tags: { include: { tag: { select: { name: true } } } },
@@ -97,22 +80,18 @@ export async function getRecentItems(limit = 10): Promise<ItemWithMeta[]> {
   return items.map(serializeItem)
 }
 
-export async function getSystemItemTypes(): Promise<SidebarItemType[]> {
-  const [types, user] = await Promise.all([
+export async function getSystemItemTypes(userId: string): Promise<SidebarItemType[]> {
+  const [types, counts] = await Promise.all([
     prisma.itemType.findMany({
       where: { isSystem: true },
       orderBy: { order: "asc" },
     }),
-    getDemoUser(),
+    prisma.item.groupBy({
+      by: ["typeId"],
+      where: { userId },
+      _count: true,
+    }),
   ])
-
-  if (!user) return types.map((t) => ({ ...t, count: 0 }))
-
-  const counts = await prisma.item.groupBy({
-    by: ["typeId"],
-    where: { userId: user.id },
-    _count: true,
-  })
 
   const countMap = new Map(counts.map((c) => [c.typeId, c._count]))
 
@@ -127,14 +106,11 @@ export async function getSystemItemTypes(): Promise<SidebarItemType[]> {
   }))
 }
 
-export async function getItemStats(): Promise<ItemStats> {
-  const user = await getDemoUser()
-  if (!user) return { totalItems: 0, favoriteItemsCount: 0, userName: null }
-
+export async function getItemStats(userId: string): Promise<ItemStats> {
   const [totalItems, favoriteItemsCount] = await Promise.all([
-    prisma.item.count({ where: { userId: user.id } }),
-    prisma.item.count({ where: { userId: user.id, isFavorite: true } }),
+    prisma.item.count({ where: { userId } }),
+    prisma.item.count({ where: { userId, isFavorite: true } }),
   ])
 
-  return { totalItems, favoriteItemsCount, userName: user.name }
+  return { totalItems, favoriteItemsCount }
 }

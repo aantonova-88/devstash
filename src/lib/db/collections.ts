@@ -1,8 +1,6 @@
 import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 
-const DEMO_USER_EMAIL = "demo@devstash.io"
-
 export interface CollectionWithMeta {
   id: string
   name: string
@@ -15,16 +13,9 @@ export interface CollectionWithMeta {
   typeIcons: Array<{ icon: string; color: string; name: string }>
 }
 
-export const getRecentCollections = cache(async (): Promise<CollectionWithMeta[]> => {
-  const user = await prisma.user.findUnique({
-    where: { email: DEMO_USER_EMAIL },
-    select: { id: true },
-  })
-
-  if (!user) return []
-
+export const getRecentCollections = cache(async (userId: string): Promise<CollectionWithMeta[]> => {
   const collections = await prisma.collection.findMany({
-    where: { userId: user.id },
+    where: { userId },
     include: {
       items: {
         include: {
