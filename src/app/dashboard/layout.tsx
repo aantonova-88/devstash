@@ -6,11 +6,11 @@ import { getRecentCollections } from "@/lib/db/collections"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session?.user) redirect("/sign-in")
+  if (!session?.user?.id) redirect("/sign-in")
 
   const [itemTypes, collections] = await Promise.all([
-    getSystemItemTypes(),
-    getRecentCollections(),
+    getSystemItemTypes(session.user.id),
+    getRecentCollections(session.user.id),
   ])
 
   return (

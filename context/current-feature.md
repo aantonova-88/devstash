@@ -1,16 +1,29 @@
-# Current Feature
+# Current Feature: Email Verification on Register
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- New users registering via email/password must verify their email before they can sign in
+- Send verification email via Resend on successful registration using `RESEND_API_KEY` from `.env`
+- Email contains a unique, single-use verification link that expires after a reasonable window (e.g., 24 hours)
+- Clicking the link verifies the user (sets `User.emailVerified`) and redirects to sign-in with a success toast
+- Block sign-in for users with unverified emails; show a clear error and option to resend the verification email
+- GitHub OAuth users are auto-verified (NextAuth sets `emailVerified` on first sign-in) — no behavior change there
+- Handle expired/invalid/already-used tokens gracefully with user-friendly messages
 
 ## Notes
 
-None
+- Stack: NextAuth v5, Prisma 7 + Neon, Next.js 16 App Router
+- `RESEND_API_KEY` is already present in `.env`; install `resend` package
+- Use Prisma's existing `VerificationToken` model (already in schema for NextAuth) to store the token + expiry
+- Verification link route: `GET /api/auth/verify-email?token=...` (or a route handler under `/verify-email`)
+- Resend email: simple HTML template with brand-consistent styling; needs a sender domain/identity (use `onboarding@resend.dev` in development if no verified domain yet)
+- Update `POST /api/auth/register` to generate token + send email after creating the user
+- Update Credentials provider `authorize()` in `auth.ts` to reject sign-in when `emailVerified` is null
+- Add a "Resend verification email" action (button on sign-in error or dedicated page)
 
 ## History
 
