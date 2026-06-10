@@ -38,13 +38,14 @@ export function RegisterForm() {
     })
     setLoading(false)
 
+    const data = await res.json().catch(() => ({}))
+
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
       setError(data.error ?? "Registration failed. Please try again.")
       return
     }
 
-    router.push("/verify-email")
+    router.push(data.verificationRequired ? "/verify-email" : "/sign-in?registered=1")
   }
 
   return (

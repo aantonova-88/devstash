@@ -30,6 +30,11 @@ export function SignInForm() {
       router.replace("/sign-in", { scroll: false })
       return
     }
+    if (searchParams.get("registered") === "1") {
+      toast.success("Account created! Sign in to continue.", { id: "registered" })
+      router.replace("/sign-in", { scroll: false })
+      return
+    }
     const verify = searchParams.get("verify")
     if (verify === "expired") {
       toast.error("That verification link has expired. Request a new one below.", {

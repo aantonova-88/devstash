@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { isEmailVerificationEnabled } from "@/lib/features"
 import { getBaseUrl, issueVerificationEmail } from "@/lib/verification"
 
 export async function POST(request: Request) {
@@ -31,22 +32,33 @@ export async function POST(request: Request) {
     }
 
     const hashed = await bcrypt.hash(password, 12)
+    const verificationEnabled = isEmailVerificationEnabled()
     const user = await prisma.user.create({
-      data: { name, email, password: hashed },
+      data: {
+        name,
+        email,
+        password: hashed,
+        emailVerified: verificationEnabled ? null : new Date(),
+      },
       select: { id: true, name: true, email: true },
     })
 
-    try {
-      await issueVerificationEmail({
-        email: user.email,
-        name: user.name,
-        baseUrl: getBaseUrl(request),
-      })
-    } catch (err) {
-      console.error("Failed to send verification email", err)
+    if (verificationEnabled) {
+      try {
+        await issueVerificationEmail({
+          email: user.email,
+          name: user.name,
+          baseUrl: getBaseUrl(request),
+        })
+      } catch (err) {
+        console.error("Failed to send verification email", err)
+      }
     }
 
-    return NextResponse.json({ success: true, user }, { status: 201 })
+    return NextResponse.json(
+      { success: true, user, verificationRequired: verificationEnabled },
+      { status: 201 }
+    )
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
