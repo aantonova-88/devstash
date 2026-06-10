@@ -1,34 +1,16 @@
-# Current Feature: Toggle Email Verification
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Add a single, easy-to-flip switch that turns the email verification system on or off
-- When **off**: new registrations are immediately usable — no verification email is sent, `emailVerified` is stamped at signup, and Credentials sign-in does not throw `EmailNotVerifiedError`
-- When **on**: behavior is identical to today (issue token, send email, block sign-in until verified)
-- Default should be **off** in development (so the project works without Resend setup) and **on** in production (or driven explicitly by env)
-- Sign-in form should not render the "Resend verification email" panel when verification is disabled
-- `/api/auth/resend-verification` should be a no-op (still 200) when disabled, to avoid leaking behavior
-- `/api/auth/verify-email` can keep working either way — harmless when verification is disabled
+None
 
 ## Notes
 
-- **Why now:** Resend account has no custom domain linked, so the free tier only allows sending to the Resend account owner's email (anna88.ptz@gmail.com). Anyone else attempting to register hits a Resend send failure, so we need a way to disable verification entirely for now.
-- **Recommended approach:** A single env variable, e.g. `EMAIL_VERIFICATION_ENABLED` (string `"true"`/`"false"`), parsed once in a small helper like `src/lib/features.ts` (mirrors the `isProUser` pattern referenced in `CLAUDE.md`). Centralizing the read makes it trivial to swap to a per-user / DB flag later without touching call sites.
-- **Alternatives considered:**
-  - Per-user DB flag — overkill; the constraint is environmental, not per-user
-  - Toggle based on `NODE_ENV` alone — too implicit; we want an explicit override that works on Vercel preview deploys too
-  - Conditional on `RESEND_API_KEY` presence — clever but conflates "feature off" with "misconfigured"
-- **Touch points:**
-  - `src/lib/features.ts` (new) — `isEmailVerificationEnabled()` helper
-  - `src/app/api/auth/register/route.ts` — skip `sendVerificationEmail` + stamp `emailVerified` when disabled
-  - `src/auth.ts` (Credentials `authorize`) — skip `EmailNotVerifiedError` when disabled
-  - `src/app/api/auth/resend-verification/route.ts` — return 200 immediately when disabled
-  - Sign-in form — hide the resend panel when disabled (either via a server-rendered prop or by suppressing the error code path)
-  - `/register` success flow — when disabled, redirect straight to `/sign-in?registered=1` and skip `/verify-email`. User logs in manually; no auto-sign-in.
+None
 
 ## History
 
@@ -46,3 +28,4 @@ In Progress
 - **Auth Phase 2 - Email/Password Credentials** - Added Credentials provider to NextAuth split-config (`auth.config.ts` placeholder, `auth.ts` with bcrypt validation); created `POST /api/auth/register` with input validation, bcrypt hashing (cost 12), and duplicate email check; GitHub OAuth unaffected (Completed)
 - **Auth Phase 3 - Auth UI** - Custom `/sign-in` page (email/password + GitHub OAuth button) and `/register` page (name, email, password, confirm); register redirects to sign-in with Sonner toast; NextAuth `pages.signIn` points to `/sign-in`; JWT/session callbacks populate `user.id`; sidebar user area replaced mock data with real session — `UserAvatar` component (GitHub image or initials fallback), user name/email, sign-out dropdown via React portal; `avatars.githubusercontent.com` added to `next.config.ts` image remotePatterns (Completed)
 - **Email Verification on Register** - Added `resend` dep + `src/lib/email.ts` (branded HTML/text template) and `src/lib/verification.ts` (32-byte hex token, 24h TTL, atomic verify-and-delete in `prisma.$transaction`); `POST /api/auth/register` issues a verification email; `GET /api/auth/verify-email` consumes the token and redirects to `/sign-in?verified=1` / `?verify=expired` / `?verify=invalid`; `POST /api/auth/resend-verification` rotates the token for unverified users and returns 200 unconditionally to avoid user-existence leak; Credentials `authorize()` throws `EmailNotVerifiedError extends CredentialsSignin` with `code = "email_not_verified"`; sign-in form detects the code and renders a "Resend verification email" panel; new `/verify-email` "Check your email" page replaces the registered-toast redirect. Also refactored dashboard data layer (`getPinnedItems`, `getRecentItems`, `getSystemItemTypes`, `getItemStats`, `getRecentCollections`) to take `userId` and scoped the dashboard to `session.user.id` instead of the hardcoded demo user. Added `scripts/delete-non-demo-users.ts` maintenance script (dry-run by default, `--yes` to apply) (Completed)
+- **Toggle Email Verification** - Added `src/lib/features.ts` with `isEmailVerificationEnabled()` reading `EMAIL_VERIFICATION_ENABLED` env (defaults: on in production, off in development). When disabled: `POST /api/auth/register` stamps `emailVerified` at signup and skips the Resend call; `POST /api/auth/resend-verification` returns a 200 no-op; Credentials `authorize()` does not throw `EmailNotVerifiedError`. Register API now returns `verificationRequired` so `RegisterForm` routes to `/sign-in?registered=1` (with new toast on `SignInForm`) instead of `/verify-email`. Added `.env.example` (with `!.env.example` gitignore exception) documenting all current env vars including the new flag (Completed)
