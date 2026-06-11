@@ -1,16 +1,26 @@
-# Current Feature
+# Current Feature: Profile Page
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Create profile page at `/profile` route (authentication required)
+- Display user info: email, name, avatar (GitHub image or initials fallback), account creation date
+- Show usage stats: total items, total collections, breakdown by item type (snippets, prompts, notes, commands, links, files, images)
+- Add "Change password" action for email/password users only (hidden for GitHub OAuth users)
+- Add "Delete account" action with confirmation dialog to prevent accidental deletion
+- Follow existing codebase patterns for data fetching (SSR server component + Prisma) and components (shadcn/ui)
 
 ## Notes
 
-None
+- Avatar logic mirrors the sidebar `UserAvatar` component: GitHub image if present, otherwise initials from name/email
+- Detect email/password users by presence of `User.password` (null for OAuth-only accounts)
+- Item type breakdown can reuse `getSystemItemTypes(userId)` from `src/lib/db/items.ts`
+- Total items / collections counts can reuse `getItemStats` pattern; add a `getCollectionStats` (or similar) if needed
+- Delete account = cascade delete of `User` (Prisma schema already has `onDelete: Cascade` on related models); sign the user out after deletion
+- Change password flow: in-app form requiring current password + new password (no email round-trip). New `POST /api/auth/change-password` route validates current password against bcrypt hash, then updates with cost-12 hash
 
 ## History
 
