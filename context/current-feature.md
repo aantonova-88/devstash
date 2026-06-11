@@ -1,29 +1,16 @@
-# Current Feature: Forgot Password
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Add a "Forgot password?" link on the `/sign-in` page that routes to `/forgot-password`
-- New `/forgot-password` page with an email input form
-- `POST /api/auth/forgot-password` issues a single-use password reset token and emails a reset link via Resend; returns 200 unconditionally to avoid user-existence leak
-- New `/reset-password` page that accepts the token from the URL and renders a "new password + confirm password" form
-- `POST /api/auth/reset-password` atomically verifies the token, updates the user's bcrypt-hashed password, and consumes the token
-- Reset tokens use the existing `VerificationToken` model with a namespaced identifier (e.g., `password-reset:<email>`) so they don't collide with email verification tokens
-- Token TTL is 1 hour and is single-use (atomic verify-and-delete inside `prisma.$transaction`)
-- After successful reset, redirect to `/sign-in?reset=1` with a success toast
+None
 
 ## Notes
 
-- Reuse the email infrastructure from `src/lib/email.ts` (branded HTML/text template) and the token pattern from `src/lib/verification.ts` (32-byte hex token, atomic verify-and-delete)
-- Add a new helper module `src/lib/password-reset.ts` (or extend `verification.ts`) that namespaces the `VerificationToken.identifier` so reset tokens are distinguishable from email verification tokens
-- Only users with a `password` set (credentials users) should receive a reset email; for OAuth-only or unknown emails the endpoint still returns 200 but sends nothing
-- Password validation on reset should match `/api/auth/register` rules (length, confirmation match)
-- Bcrypt cost 12 to match `register` route
-- The feature is independent of `EMAIL_VERIFICATION_ENABLED` — password reset should always work for credentials users regardless of the flag
-- Add the reset link template to `src/lib/email.ts` (or a sibling helper) following the same branded style
+None
 
 ## History
 
@@ -42,3 +29,4 @@ In Progress
 - **Auth Phase 3 - Auth UI** - Custom `/sign-in` page (email/password + GitHub OAuth button) and `/register` page (name, email, password, confirm); register redirects to sign-in with Sonner toast; NextAuth `pages.signIn` points to `/sign-in`; JWT/session callbacks populate `user.id`; sidebar user area replaced mock data with real session — `UserAvatar` component (GitHub image or initials fallback), user name/email, sign-out dropdown via React portal; `avatars.githubusercontent.com` added to `next.config.ts` image remotePatterns (Completed)
 - **Email Verification on Register** - Added `resend` dep + `src/lib/email.ts` (branded HTML/text template) and `src/lib/verification.ts` (32-byte hex token, 24h TTL, atomic verify-and-delete in `prisma.$transaction`); `POST /api/auth/register` issues a verification email; `GET /api/auth/verify-email` consumes the token and redirects to `/sign-in?verified=1` / `?verify=expired` / `?verify=invalid`; `POST /api/auth/resend-verification` rotates the token for unverified users and returns 200 unconditionally to avoid user-existence leak; Credentials `authorize()` throws `EmailNotVerifiedError extends CredentialsSignin` with `code = "email_not_verified"`; sign-in form detects the code and renders a "Resend verification email" panel; new `/verify-email` "Check your email" page replaces the registered-toast redirect. Also refactored dashboard data layer (`getPinnedItems`, `getRecentItems`, `getSystemItemTypes`, `getItemStats`, `getRecentCollections`) to take `userId` and scoped the dashboard to `session.user.id` instead of the hardcoded demo user. Added `scripts/delete-non-demo-users.ts` maintenance script (dry-run by default, `--yes` to apply) (Completed)
 - **Toggle Email Verification** - Added `src/lib/features.ts` with `isEmailVerificationEnabled()` reading `EMAIL_VERIFICATION_ENABLED` env (defaults: on in production, off in development). When disabled: `POST /api/auth/register` stamps `emailVerified` at signup and skips the Resend call; `POST /api/auth/resend-verification` returns a 200 no-op; Credentials `authorize()` does not throw `EmailNotVerifiedError`. Register API now returns `verificationRequired` so `RegisterForm` routes to `/sign-in?registered=1` (with new toast on `SignInForm`) instead of `/verify-email`. Added `.env.example` (with `!.env.example` gitignore exception) documenting all current env vars including the new flag (Completed)
+- **Forgot Password** - New `src/lib/password-reset.ts` with `issuePasswordResetEmail()` and `consumePasswordResetToken()`; reuses the existing `VerificationToken` model with a namespaced `identifier = "password-reset:<email>"` to avoid collision with email verification (1h TTL, atomic verify-update-and-delete in `prisma.$transaction`). Added `sendPasswordResetEmail()` branded HTML/text template in `src/lib/email.ts`. New routes: `POST /api/auth/forgot-password` returns 200 unconditionally and only emails users with a `password` set (OAuth-only skipped); `POST /api/auth/reset-password` validates the token + password (≥8, confirm matches), bcrypt-hashes (cost 12), and consumes the token. New pages: `/forgot-password` (`ForgotPasswordForm` with "Check your email" confirmation screen) and `/reset-password` (`ResetPasswordForm` reading `?token=` inside `<Suspense>`, redirecting to `/sign-in?reset=1` on success). Added "Forgot password?" link to `SignInForm` next to the password label and a `?reset=1` success toast. Hardened `consumeVerificationToken()` to reject identifiers containing `:` so reset tokens can't be replayed against the verify-email endpoint. Independent of `EMAIL_VERIFICATION_ENABLED` (Completed)
