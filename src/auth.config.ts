@@ -29,9 +29,10 @@ export default {
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const isOnDashboard = nextUrl.pathname.startsWith("/dashboard")
+      const path = nextUrl.pathname
+      const isProtected = path.startsWith("/dashboard") || path.startsWith("/profile")
 
-      if (isOnDashboard) {
+      if (isProtected) {
         return isLoggedIn
       }
       return true
