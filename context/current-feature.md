@@ -1,16 +1,29 @@
-# Current Feature
+# Current Feature: Forgot Password
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Add a "Forgot password?" link on the `/sign-in` page that routes to `/forgot-password`
+- New `/forgot-password` page with an email input form
+- `POST /api/auth/forgot-password` issues a single-use password reset token and emails a reset link via Resend; returns 200 unconditionally to avoid user-existence leak
+- New `/reset-password` page that accepts the token from the URL and renders a "new password + confirm password" form
+- `POST /api/auth/reset-password` atomically verifies the token, updates the user's bcrypt-hashed password, and consumes the token
+- Reset tokens use the existing `VerificationToken` model with a namespaced identifier (e.g., `password-reset:<email>`) so they don't collide with email verification tokens
+- Token TTL is 1 hour and is single-use (atomic verify-and-delete inside `prisma.$transaction`)
+- After successful reset, redirect to `/sign-in?reset=1` with a success toast
 
 ## Notes
 
-None
+- Reuse the email infrastructure from `src/lib/email.ts` (branded HTML/text template) and the token pattern from `src/lib/verification.ts` (32-byte hex token, atomic verify-and-delete)
+- Add a new helper module `src/lib/password-reset.ts` (or extend `verification.ts`) that namespaces the `VerificationToken.identifier` so reset tokens are distinguishable from email verification tokens
+- Only users with a `password` set (credentials users) should receive a reset email; for OAuth-only or unknown emails the endpoint still returns 200 but sends nothing
+- Password validation on reset should match `/api/auth/register` rules (length, confirmation match)
+- Bcrypt cost 12 to match `register` route
+- The feature is independent of `EMAIL_VERIFICATION_ENABLED` — password reset should always work for credentials users regardless of the flag
+- Add the reset link template to `src/lib/email.ts` (or a sibling helper) following the same branded style
 
 ## History
 

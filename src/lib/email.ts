@@ -46,3 +46,46 @@ This link expires in 24 hours. If you didn't create an account, you can safely i
     text,
   })
 }
+
+export async function sendPasswordResetEmail(opts: {
+  to: string
+  name?: string | null
+  resetUrl: string
+}) {
+  const { to, name, resetUrl } = opts
+  const greeting = name ? `Hi ${name},` : "Hi,"
+
+  const html = `<!DOCTYPE html>
+<html>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0a0a0a; color:#e5e5e5; padding:32px;">
+    <div style="max-width:480px; margin:0 auto; background:#111; border:1px solid #222; border-radius:12px; padding:32px;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px;">
+        <div style="width:32px; height:32px; border-radius:8px; background:#3b82f6; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;">ds</div>
+        <strong style="font-size:16px; color:#fff;">DevStash</strong>
+      </div>
+      <h1 style="font-size:20px; color:#fff; margin:0 0 12px;">Reset your password</h1>
+      <p style="margin:0 0 16px; line-height:1.5;">${greeting}</p>
+      <p style="margin:0 0 24px; line-height:1.5;">We received a request to reset your DevStash password. Click the button below to choose a new one.</p>
+      <a href="${resetUrl}" style="display:inline-block; background:#3b82f6; color:#fff; padding:12px 20px; border-radius:8px; text-decoration:none; font-weight:600;">Reset password</a>
+      <p style="margin:24px 0 0; font-size:13px; color:#9ca3af; line-height:1.5;">Or paste this link into your browser:<br/><span style="word-break:break-all; color:#e5e5e5;">${resetUrl}</span></p>
+      <p style="margin:24px 0 0; font-size:13px; color:#9ca3af; line-height:1.5;">This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.</p>
+    </div>
+  </body>
+</html>`
+
+  const text = `${greeting}
+
+We received a request to reset your DevStash password. Open this link to choose a new one:
+
+${resetUrl}
+
+This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.`
+
+  return resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Reset your DevStash password",
+    html,
+    text,
+  })
+}

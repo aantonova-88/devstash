@@ -35,6 +35,11 @@ export function SignInForm() {
       router.replace("/sign-in", { scroll: false })
       return
     }
+    if (searchParams.get("reset") === "1") {
+      toast.success("Password updated! Sign in with your new password.", { id: "reset" })
+      router.replace("/sign-in", { scroll: false })
+      return
+    }
     const verify = searchParams.get("verify")
     if (verify === "expired") {
       toast.error("That verification link has expired. Request a new one below.", {
@@ -171,9 +176,17 @@ export function SignInForm() {
           />
         </div>
         <div className="space-y-2">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium">
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground underline-offset-4 hover:underline hover:text-foreground"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             type="password"
