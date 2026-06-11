@@ -1,26 +1,16 @@
-# Current Feature: Profile Page
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Create profile page at `/profile` route (authentication required)
-- Display user info: email, name, avatar (GitHub image or initials fallback), account creation date
-- Show usage stats: total items, total collections, breakdown by item type (snippets, prompts, notes, commands, links, files, images)
-- Add "Change password" action for email/password users only (hidden for GitHub OAuth users)
-- Add "Delete account" action with confirmation dialog to prevent accidental deletion
-- Follow existing codebase patterns for data fetching (SSR server component + Prisma) and components (shadcn/ui)
+None
 
 ## Notes
 
-- Avatar logic mirrors the sidebar `UserAvatar` component: GitHub image if present, otherwise initials from name/email
-- Detect email/password users by presence of `User.password` (null for OAuth-only accounts)
-- Item type breakdown can reuse `getSystemItemTypes(userId)` from `src/lib/db/items.ts`
-- Total items / collections counts can reuse `getItemStats` pattern; add a `getCollectionStats` (or similar) if needed
-- Delete account = cascade delete of `User` (Prisma schema already has `onDelete: Cascade` on related models); sign the user out after deletion
-- Change password flow: in-app form requiring current password + new password (no email round-trip). New `POST /api/auth/change-password` route validates current password against bcrypt hash, then updates with cost-12 hash
+None
 
 ## History
 
@@ -40,3 +30,4 @@ In Progress
 - **Email Verification on Register** - Added `resend` dep + `src/lib/email.ts` (branded HTML/text template) and `src/lib/verification.ts` (32-byte hex token, 24h TTL, atomic verify-and-delete in `prisma.$transaction`); `POST /api/auth/register` issues a verification email; `GET /api/auth/verify-email` consumes the token and redirects to `/sign-in?verified=1` / `?verify=expired` / `?verify=invalid`; `POST /api/auth/resend-verification` rotates the token for unverified users and returns 200 unconditionally to avoid user-existence leak; Credentials `authorize()` throws `EmailNotVerifiedError extends CredentialsSignin` with `code = "email_not_verified"`; sign-in form detects the code and renders a "Resend verification email" panel; new `/verify-email` "Check your email" page replaces the registered-toast redirect. Also refactored dashboard data layer (`getPinnedItems`, `getRecentItems`, `getSystemItemTypes`, `getItemStats`, `getRecentCollections`) to take `userId` and scoped the dashboard to `session.user.id` instead of the hardcoded demo user. Added `scripts/delete-non-demo-users.ts` maintenance script (dry-run by default, `--yes` to apply) (Completed)
 - **Toggle Email Verification** - Added `src/lib/features.ts` with `isEmailVerificationEnabled()` reading `EMAIL_VERIFICATION_ENABLED` env (defaults: on in production, off in development). When disabled: `POST /api/auth/register` stamps `emailVerified` at signup and skips the Resend call; `POST /api/auth/resend-verification` returns a 200 no-op; Credentials `authorize()` does not throw `EmailNotVerifiedError`. Register API now returns `verificationRequired` so `RegisterForm` routes to `/sign-in?registered=1` (with new toast on `SignInForm`) instead of `/verify-email`. Added `.env.example` (with `!.env.example` gitignore exception) documenting all current env vars including the new flag (Completed)
 - **Forgot Password** - New `src/lib/password-reset.ts` with `issuePasswordResetEmail()` and `consumePasswordResetToken()`; reuses the existing `VerificationToken` model with a namespaced `identifier = "password-reset:<email>"` to avoid collision with email verification (1h TTL, atomic verify-update-and-delete in `prisma.$transaction`). Added `sendPasswordResetEmail()` branded HTML/text template in `src/lib/email.ts`. New routes: `POST /api/auth/forgot-password` returns 200 unconditionally and only emails users with a `password` set (OAuth-only skipped); `POST /api/auth/reset-password` validates the token + password (≥8, confirm matches), bcrypt-hashes (cost 12), and consumes the token. New pages: `/forgot-password` (`ForgotPasswordForm` with "Check your email" confirmation screen) and `/reset-password` (`ResetPasswordForm` reading `?token=` inside `<Suspense>`, redirecting to `/sign-in?reset=1` on success). Added "Forgot password?" link to `SignInForm` next to the password label and a `?reset=1` success toast. Hardened `consumeVerificationToken()` to reject identifiers containing `:` so reset tokens can't be replayed against the verify-email endpoint. Independent of `EMAIL_VERIFICATION_ENABLED` (Completed)
+- **Profile Page** - New `/profile` route (auth-protected via `auth.config.ts` + layout redirect) showing identity (avatar via `UserAvatar`, name, email, joined date), usage stats (total items, total collections), per-system-type item breakdown, and account actions. New `getProfileStats(userId)` in `src/lib/db/items.ts` batches item count, collection count, system types, and per-type grouping in one `Promise.all`. New `POST /api/auth/change-password` (session-auth, bcrypt-compares current password, rehashes new password at cost 12; only available to users with `password` set). New `POST /api/auth/delete-account` (session-auth, requires typing exact email to confirm, then deletes `User` — Prisma cascades remove items, collections, accounts, sessions). `ChangePasswordCard` and `DeleteAccountCard` use an inline expand/confirm pattern (no Dialog primitive); delete card hidden for OAuth-only users. On successful delete, client calls `next-auth/react` `signOut()` and redirects to `/sign-in?deleted=1`; `SignInForm` shows a new success toast for that param. Profile layout mirrors the dashboard pattern: server component fetches sidebar data in parallel and wraps children in `DashboardShell` (Completed)
