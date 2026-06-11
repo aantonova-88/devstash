@@ -36,7 +36,7 @@ type ConsumeResult =
 
 export async function consumeVerificationToken(token: string): Promise<ConsumeResult> {
   const record = await prisma.verificationToken.findUnique({ where: { token } })
-  if (!record) return { ok: false, reason: "invalid" }
+  if (!record || record.identifier.includes(":")) return { ok: false, reason: "invalid" }
 
   if (record.expires < new Date()) {
     await prisma.verificationToken.delete({ where: { token } }).catch(() => {})
