@@ -507,11 +507,11 @@ if (!user.isPro) {
 
 ### Pro Gate — During Development
 
-During development, treat all users as Pro. Add a single feature flag to easily toggle this:
+During development, treat all users as Pro. The `isProUser` helper is planned but not yet implemented — `src/lib/features.ts` currently only exports `isEmailVerificationEnabled()`. When the gate lands, follow the same env-driven pattern:
 
 ```ts
-// lib/features.ts
-export const isProUser = (user: User) => {
+// src/lib/features.ts
+export function isProUser(user: User): boolean {
   if (process.env.NODE_ENV === 'development') return true
   return user.isPro
 }
@@ -525,27 +525,35 @@ export const isProUser = (user: User) => {
 
 ### Environment Variables
 
+NextAuth v5 uses the `AUTH_*` prefix (not the v4 `NEXTAUTH_*` names). `NEXTAUTH_URL` is still read as a fallback for building absolute email links.
+
 ```env
 # Database
 DATABASE_URL=
 
-# Auth
-NEXTAUTH_URL=
-NEXTAUTH_SECRET=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
+# Auth (NextAuth v5)
+AUTH_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
+NEXTAUTH_URL=        # used for verification/reset email links
+AUTH_URL=            # fallback for NEXTAUTH_URL
 
-# Cloudflare R2
+# Email (Resend)
+RESEND_API_KEY=
+EMAIL_FROM=                       # e.g. "DevStash <hello@yourdomain>"
+EMAIL_VERIFICATION_ENABLED=       # "true" | "false"; defaults: on in prod, off in dev
+
+# Cloudflare R2 (planned — not yet wired)
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 R2_PUBLIC_URL=
 
-# OpenAI
+# OpenAI (planned — not yet wired)
 OPENAI_API_KEY=
 
-# Stripe
+# Stripe (planned — not yet wired)
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRO_MONTHLY_PRICE_ID=

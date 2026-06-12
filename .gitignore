@@ -34,6 +34,12 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local MCP config (contains API keys)
+.mcp.json
+
+# local agent runtime state
+.claude/agent-memory/
+
 # vercel
 .vercel
 
