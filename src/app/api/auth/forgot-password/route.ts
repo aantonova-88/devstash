@@ -2,9 +2,18 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getBaseUrl } from "@/lib/verification"
 import { issuePasswordResetEmail } from "@/lib/password-reset"
+import {
+  checkRateLimit,
+  forgotPasswordLimiter,
+  getClientIp,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = await checkRateLimit(forgotPasswordLimiter, getClientIp(request))
+    if (!ipLimit.success) return tooManyRequestsResponse(ipLimit)
+
     const body = await request.json().catch(() => ({}))
     const { email } = body as { email?: string }
 

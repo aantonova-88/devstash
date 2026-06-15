@@ -80,6 +80,8 @@ export function SignInForm() {
       if (result.code === "email_not_verified") {
         setNeedsVerification(true)
         setError("Please verify your email before signing in.")
+      } else if (result.code === "rate_limited") {
+        setError("Too many sign-in attempts. Please try again in a few minutes.")
       } else {
         setError("Invalid email or password.")
       }
@@ -96,12 +98,18 @@ export function SignInForm() {
       return
     }
     setResending(true)
-    await fetch("/api/auth/resend-verification", {
+    const res = await fetch("/api/auth/resend-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
-    }).catch(() => {})
+    }).catch(() => null)
     setResending(false)
+
+    if (res?.status === 429) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? "Too many attempts. Please try again later.")
+      return
+    }
     setResent(true)
     toast.success("If an unverified account exists for that email, we just sent a new link.")
   }
