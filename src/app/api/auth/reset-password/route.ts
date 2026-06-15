@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { consumePasswordResetToken } from "@/lib/password-reset"
+import {
+  checkRateLimit,
+  getClientIp,
+  resetPasswordLimiter,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = await checkRateLimit(resetPasswordLimiter, getClientIp(request))
+    if (!ipLimit.success) return tooManyRequestsResponse(ipLimit)
+
     const body = await request.json().catch(() => ({}))
     const { token, password, confirmPassword } = body as {
       token?: string

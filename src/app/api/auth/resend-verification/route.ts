@@ -2,6 +2,12 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isEmailVerificationEnabled } from "@/lib/features"
 import { getBaseUrl, issueVerificationEmail } from "@/lib/verification"
+import {
+  checkRateLimit,
+  getClientIp,
+  resendVerificationLimiter,
+  tooManyRequestsResponse,
+} from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +21,13 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
+
+    const ip = getClientIp(request)
+    const limit = await checkRateLimit(
+      resendVerificationLimiter,
+      `${ip}:${email.toLowerCase()}`,
+    )
+    if (!limit.success) return tooManyRequestsResponse(limit)
 
     const user = await prisma.user.findUnique({
       where: { email },

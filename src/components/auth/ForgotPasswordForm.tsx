@@ -7,18 +7,26 @@ import { Input } from "@/components/ui/input"
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("")
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    await fetch("/api/auth/forgot-password", {
+    const res = await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
-    }).catch(() => {})
+    }).catch(() => null)
     setLoading(false)
+
+    if (res?.status === 429) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? "Too many attempts. Please try again later.")
+      return
+    }
     setSent(true)
   }
 
@@ -52,6 +60,9 @@ export function ForgotPasswordForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p className="text-sm text-destructive text-center">{error}</p>
+        )}
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
             Email
