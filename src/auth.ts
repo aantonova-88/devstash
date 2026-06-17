@@ -20,7 +20,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   ...authConfig,
   providers: [
-    GitHub,
+    GitHub({
+      allowDangerousEmailAccountLinking: true,
+      authorization: { params: { prompt: "consent" } },
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
