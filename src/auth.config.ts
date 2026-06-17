@@ -4,7 +4,10 @@ import Credentials from "next-auth/providers/credentials"
 
 export default {
   providers: [
-    GitHub,
+    GitHub({
+      allowDangerousEmailAccountLinking: true,
+      authorization: { params: { prompt: "consent" } },
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
