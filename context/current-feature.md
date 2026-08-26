@@ -1,16 +1,22 @@
-# Current Feature
+# Current Feature: Items List View
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Create dynamic route `/items/[type]` (e.g. `/items/snippets`, `/items/notes`) that displays type-filtered items
+- Fetch items filtered by type and render them in a responsive grid of `ItemCard` components
+- Grid uses two columns on medium screens and up, single column below
+- Each card keeps the type-colored left border
 
 ## Notes
 
-None
+- Spec: `context/features/item-list-view-spec.md`
+- Follow existing codebase patterns: SSR server component page, data fetching in `src/lib/db/items.ts` scoped by `userId`, client interactivity isolated
+- Sidebar item types already link to these paths — see `/items/*` routes in `context/project-overview.md` §10
+- `docs/item-crud-architecture.md` already describes the intended `/items/[type]` dynamic routing and type-registry approach; use it as reference
 
 ## History
 

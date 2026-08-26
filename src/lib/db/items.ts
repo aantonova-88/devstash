@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 
 export interface SidebarItemType {
@@ -104,6 +105,57 @@ export async function getSystemItemTypes(userId: string): Promise<SidebarItemTyp
     category: t.category,
     count: countMap.get(t.id) ?? 0,
   }))
+}
+
+export interface ItemTypeSummary {
+  id: string
+  name: string
+  slug: string
+  icon: string
+  color: string
+  category: string
+}
+
+/**
+ * Resolve a route slug (e.g. "snippets") to a system ItemType row.
+ * Returns null for unknown slugs so the page can render a 404.
+ */
+export const getItemTypeBySlug = cache(
+  async (slug: string): Promise<ItemTypeSummary | null> => {
+    const type = await prisma.itemType.findFirst({
+      where: { slug, isSystem: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        icon: true,
+        color: true,
+        category: true,
+      },
+    })
+
+    return type
+  }
+)
+
+export async function getItemsByType(
+  userId: string,
+  typeId: string
+): Promise<ItemWithMeta[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, typeId },
+    include: {
+      type: { select: { name: true, icon: true, color: true } },
+      tags: { include: { tag: { select: { name: true } } } },
+    },
+    orderBy: [
+      { isPinned: "desc" },
+      { lastUsedAt: { sort: "desc", nulls: "last" } },
+      { updatedAt: "desc" },
+    ],
+  })
+
+  return items.map(serializeItem)
 }
 
 export async function getItemStats(userId: string): Promise<ItemStats> {
