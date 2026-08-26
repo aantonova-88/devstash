@@ -17,7 +17,10 @@ interface ItemCardProps {
 
 export function ItemCard({ item, icon: Icon }: ItemCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
+    <div
+      className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3"
+      style={{ borderLeftColor: item.type.color }}
+    >
       <div
         className="flex items-center gap-1.5 self-start text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded"
         style={{ color: item.type.color, backgroundColor: `${item.type.color}20` }}

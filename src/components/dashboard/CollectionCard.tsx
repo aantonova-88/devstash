@@ -24,8 +24,8 @@ interface CollectionCardProps {
 export function CollectionCard({ collection }: CollectionCardProps) {
   return (
     <div
-      className="rounded-lg border bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors"
-      style={{ borderColor: `${collection.dominantColor}50` }}
+      className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors"
+      style={{ borderLeftColor: collection.dominantColor }}
     >
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-2">
