@@ -1,22 +1,16 @@
-# Current Feature: Items List View
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Create dynamic route `/items/[type]` (e.g. `/items/snippets`, `/items/notes`) that displays type-filtered items
-- Fetch items filtered by type and render them in a responsive grid of `ItemCard` components
-- Grid uses two columns on medium screens and up, single column below
-- Each card keeps the type-colored left border
+None
 
 ## Notes
 
-- Spec: `context/features/item-list-view-spec.md`
-- Follow existing codebase patterns: SSR server component page, data fetching in `src/lib/db/items.ts` scoped by `userId`, client interactivity isolated
-- Sidebar item types already link to these paths — see `/items/*` routes in `context/project-overview.md` §10
-- `docs/item-crud-architecture.md` already describes the intended `/items/[type]` dynamic routing and type-registry approach; use it as reference
+None
 
 ## History
 
@@ -41,3 +35,4 @@ In Progress
 - **Fix GitHub OAuth Redirect** - New `GET /api/auth/oauth/github` route runs server-side `signIn("github", { redirectTo: "/dashboard" })`; `SignInForm` replaces the GitHub `<Button onClick>` with a plain `<a>` styled via `buttonVariants`, so the click works on first try regardless of React hydration (the prior server-action-in-form approach returned a 200 HTML page on pre-hydration POSTs). Added `matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"]` to `src/proxy.ts` so the auth middleware no longer runs on `/api/auth/callback/github`. GitHub provider configured with `allowDangerousEmailAccountLinking: true` (safe — `user:email` scope only returns GitHub-verified emails) to fix the silent `OAuthAccountNotLinked` bounce that occurred when a `User` row already existed from email/password registration; also added `authorization.params.prompt = "consent"` so the GitHub consent screen is shown on every sign-in. `SignInForm` now surfaces `OAuthAccountNotLinked` and other OAuth error codes as inline text instead of silently rendering the form. Original spec misdiagnosed the bug as client-side `signIn` redirect flake — the real root causes were hydration timing on the form-action submission and the missing `Account` link on the existing User row (Completed)
 - **Card Type-Color Left Borders** - `ItemCard` previously rendered a neutral `border-border` outline, so the item type color only showed in the type badge; `CollectionCard` tinted its entire outline with `${dominantColor}50`. Both now use `border border-border border-l-4` with an inline `borderLeftColor` set to the type color (`item.type.color` / `collection.dominantColor`) at full strength, so the two card types are visually consistent on the dashboard (Completed)
 - **Research Skill & Item Docs** - Added `.claude/skills/research/SKILL.md`, a documentation-only skill (`/research <prompt-name>`) that reads a prompt spec from `context/research/{name}.md` — Output / Research / Include / Sources sections — and writes generated docs to `/docs/`; it explicitly must not modify source, branch, or commit. Committed the two prompt specs (`item-crud-research.md`, `item-types-research.md`) alongside their output: `docs/item-types.md` (the 7 system types, per-type fields, TEXT/URL/FILE classification, shared properties, display differences, discrepancies found) and `docs/item-crud-architecture.md` (unified CRUD design — type registry, `/items/[type]` dynamic routing, `lib/db` queries called from server components, `src/actions/items.ts` mutations, security requirements, suggested build order). Docs only — no implementation yet (Completed)
+- **Items List View** - New dynamic route `/items/[type]` rendering type-filtered items, wiring up the 7 sidebar links that previously 404'd. Added `getItemTypeBySlug(slug)` to `src/lib/db/items.ts` — React `cache()`-wrapped, resolves the route slug to a system `ItemType` row (`isSystem: true`) and returns `null` for unknown slugs so the page calls `notFound()`; the slug itself is never used as a query filter, only the resolved `type.id`. Added `getItemsByType(userId, typeId)` ordering `isPinned desc → lastUsedAt desc nulls last → updatedAt desc`, matching the dashboard. New `src/app/items/[type]/page.tsx` (SSR server component: session check, slug resolution, type header with icon/color/count, `grid-cols-1 md:grid-cols-2` `ItemCard` grid, type-aware empty state) and `src/app/items/layout.tsx` (auth + `DashboardShell`, third byte-identical copy of the shell layout — the route-group refactor in `docs/item-crud-architecture.md` §4b is still deferred). Added `/items` to the protected paths in `auth.config.ts`, which had only covered `/dashboard` and `/profile`. Also fixed the `ItemCard` content preview rendering a clipped half-line: `-webkit-line-clamp` clips text at 3 lines but `overflow: hidden` clips at the *padding* box, so the `<pre>`'s own `p-2` leaked the top half of line 4 — padding moved to a wrapper `<div>` with the clamped `<pre>` left unpadded. Blank lines are now stripped from the excerpt (they were consuming preview rows and stranding the ellipsis on an empty line), and the mid-word `slice(0, 180)` became a 300-char guard with CSS deciding where truncation lands. Known gaps left for later slices: `ItemWithMeta` still omits `url`/`fileUrl` so Link and File cards render title-only, `/items/files` and `/items/images` have no Pro gate (`isProUser()` doesn't exist yet), and `getItemsByType` has no pagination (Completed)
