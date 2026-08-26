@@ -33,7 +33,10 @@ export default {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
       const path = nextUrl.pathname
-      const isProtected = path.startsWith("/dashboard") || path.startsWith("/profile")
+      const isProtected =
+        path.startsWith("/dashboard") ||
+        path.startsWith("/profile") ||
+        path.startsWith("/items")
 
       if (isProtected) {
         return isLoggedIn

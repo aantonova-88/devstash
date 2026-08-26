@@ -15,7 +15,18 @@ interface ItemCardProps {
 }
 
 
+/** Blank lines waste preview rows, so drop them; CSS clamps the rest. */
+function contentPreview(content: string) {
+  return content
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .join("\n")
+    .slice(0, 300)
+}
+
 export function ItemCard({ item, icon: Icon }: ItemCardProps) {
+  const preview = item.content ? contentPreview(item.content) : null
+
   return (
     <div
       className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3"
@@ -31,10 +42,14 @@ export function ItemCard({ item, icon: Icon }: ItemCardProps) {
 
       <h3 className="text-sm font-semibold leading-tight">{item.title}</h3>
 
-      {item.content && (
-        <pre className="text-[11px] font-mono text-muted-foreground bg-muted/50 rounded p-2 overflow-hidden line-clamp-3 whitespace-pre-wrap leading-relaxed">
-          {item.content.slice(0, 180)}
-        </pre>
+      {preview && (
+        // Padding lives on the wrapper: `overflow-hidden` clips at the padding
+        // box, so padding on the clamped element itself leaks the next line.
+        <div className="bg-muted/50 rounded p-2 overflow-hidden">
+          <pre className="text-[11px] font-mono text-muted-foreground line-clamp-3 whitespace-pre-wrap leading-relaxed">
+            {preview}
+          </pre>
+        </div>
       )}
 
       <div className="flex items-center justify-between mt-auto pt-1">
