@@ -64,6 +64,7 @@ This causes **context switching**, **lost knowledge**, and **inconsistent workfl
 | **AI** | [OpenAI](https://platform.openai.com/) — `gpt-4o-mini` model |
 | **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | **Payments** | [Stripe](https://stripe.com/docs) |
+| **Testing** | [Vitest](https://vitest.dev/) — unit tests for server actions & utilities only |
 
 > **Important:** Never use `prisma db push` or manually modify the database schema. Always create and run migrations (`prisma migrate dev` in development, `prisma migrate deploy` in production).
 
@@ -516,6 +517,29 @@ export function isProUser(user: User): boolean {
   return user.isPro
 }
 ```
+
+### Testing
+
+Unit tests run on **Vitest** (`vitest.config.ts`, `node` environment).
+
+```bash
+npm run test        # single run
+npm run test:watch  # watch mode
+```
+
+Scope is deliberately narrow — the `include` pattern only picks up `src/lib/**/*.test.ts`
+and `src/actions/**/*.test.ts`:
+
+| Tested | Not tested |
+|---|---|
+| Utilities (`src/lib/**`) | React components (`src/components/**`) |
+| Server actions (`src/actions/**`) | Pages & layouts (`src/app/**`) |
+| | API route handlers |
+| | Anything hitting a real DB or network |
+
+Tests are co-located (`src/lib/utils.ts` → `src/lib/utils.test.ts`), Vitest globals are off
+(import `describe`/`it`/`expect`/`vi` explicitly), and any module that imports `@/lib/prisma`
+is mocked with `vi.mock("@/lib/prisma", ...)` so tests never touch Neon.
 
 ### File Uploads (Cloudflare R2)
 

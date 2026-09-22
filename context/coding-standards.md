@@ -54,6 +54,7 @@ Example v4 configuration:
 - Server Actions: `src/actions/[feature].ts`
 - Types: `src/types/[feature].ts`
 - Lib/Utils: `src/lib/[utility].ts`
+- Unit tests: co-located next to the source — `src/lib/[utility].test.ts`, `src/actions/[feature].test.ts`
 
 ## Naming
 
@@ -82,6 +83,47 @@ Example v4 configuration:
 - Server components fetch directly with Prisma
 - Client components use Server Actions
 - Validate all inputs with Zod
+
+## Testing
+
+We use **Vitest** for unit tests. Config lives in `vitest.config.ts`.
+
+**What we test**
+
+- Server actions (`src/actions/**`)
+- Utilities and helpers (`src/lib/**`)
+
+**What we do NOT test**
+
+- React components (`src/components/**`) — no jsdom, no Testing Library
+- Pages and layouts (`src/app/**`)
+- Anything requiring a real database or network call
+
+The `include` pattern in `vitest.config.ts` is deliberately limited to `src/lib` and
+`src/actions`, so a test placed elsewhere simply won't run.
+
+**Conventions**
+
+- Co-locate tests: `src/lib/utils.ts` → `src/lib/utils.test.ts`
+- Globals are off — import explicitly: `import { describe, it, expect, vi } from "vitest"`
+- Environment is `node`; mocks and env stubs reset between tests (`restoreMocks`, `unstubEnvs`)
+- Stub env vars with `vi.stubEnv()`, never by assigning to `process.env` directly
+- Mock the database rather than hitting Neon:
+
+```ts
+vi.mock("@/lib/prisma", () => ({ prisma: {} }))
+// or, for a module that actually queries:
+vi.mock("@/lib/prisma", () => ({
+  prisma: { item: { findMany: vi.fn().mockResolvedValue([]) } },
+}))
+```
+
+- Test behaviour and edge cases (empty input, boundaries, error paths), not implementation details
+
+```bash
+npm run test        # single run
+npm run test:watch  # watch mode
+```
 
 ## Error Handling
 
