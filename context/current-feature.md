@@ -1,28 +1,16 @@
-# Current Feature — Items List Three-Column Grid
+# Current Feature
 
 ## Status
 
-In Progress
+None
 
 ## Goals
 
-- Show the item grid on `/items/[type]` in **three** columns on large screens instead of two
-- Keep the layout responsive: single column on mobile, two on medium, three on large
-- Stay consistent with the existing dashboard grid rhythm — no new breakpoints invented
-- No changes to `ItemCard` itself unless three-up exposes a layout problem
+None
 
 ## Notes
 
-- Single touch point: the grid wrapper at `src/app/items/[type]/page.tsx:51`, currently
-  `grid grid-cols-1 md:grid-cols-2 gap-4`
-- Proposed: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4` — byte-identical to the
-  collections grid on `src/app/dashboard/page.tsx:106`, so the two views match
-- **Decided:** `sm:grid-cols-2 lg:grid-cols-3` — matches the dashboard exactly; the 2-column
-  jump moves from `md` (768px) down to `sm` (640px)
-- Tailwind v4 — no config file; these are stock utility classes, nothing to add to `@theme`
-- Nothing testable here (pure presentational markup) — Vitest scope stays on actions/utilities,
-  so `/feature test` should come back empty for this one
-- Verify in the browser at each width: mobile (~375px), tablet (~768px), desktop (~1440px)
+None
 
 ## History
 
@@ -49,3 +37,4 @@ In Progress
 - **Research Skill & Item Docs** - Added `.claude/skills/research/SKILL.md`, a documentation-only skill (`/research <prompt-name>`) that reads a prompt spec from `context/research/{name}.md` — Output / Research / Include / Sources sections — and writes generated docs to `/docs/`; it explicitly must not modify source, branch, or commit. Committed the two prompt specs (`item-crud-research.md`, `item-types-research.md`) alongside their output: `docs/item-types.md` (the 7 system types, per-type fields, TEXT/URL/FILE classification, shared properties, display differences, discrepancies found) and `docs/item-crud-architecture.md` (unified CRUD design — type registry, `/items/[type]` dynamic routing, `lib/db` queries called from server components, `src/actions/items.ts` mutations, security requirements, suggested build order). Docs only — no implementation yet (Completed)
 - **Items List View** - New dynamic route `/items/[type]` rendering type-filtered items, wiring up the 7 sidebar links that previously 404'd. Added `getItemTypeBySlug(slug)` to `src/lib/db/items.ts` — React `cache()`-wrapped, resolves the route slug to a system `ItemType` row (`isSystem: true`) and returns `null` for unknown slugs so the page calls `notFound()`; the slug itself is never used as a query filter, only the resolved `type.id`. Added `getItemsByType(userId, typeId)` ordering `isPinned desc → lastUsedAt desc nulls last → updatedAt desc`, matching the dashboard. New `src/app/items/[type]/page.tsx` (SSR server component: session check, slug resolution, type header with icon/color/count, `grid-cols-1 md:grid-cols-2` `ItemCard` grid, type-aware empty state) and `src/app/items/layout.tsx` (auth + `DashboardShell`, third byte-identical copy of the shell layout — the route-group refactor in `docs/item-crud-architecture.md` §4b is still deferred). Added `/items` to the protected paths in `auth.config.ts`, which had only covered `/dashboard` and `/profile`. Also fixed the `ItemCard` content preview rendering a clipped half-line: `-webkit-line-clamp` clips text at 3 lines but `overflow: hidden` clips at the *padding* box, so the `<pre>`'s own `p-2` leaked the top half of line 4 — padding moved to a wrapper `<div>` with the clamped `<pre>` left unpadded. Blank lines are now stripped from the excerpt (they were consuming preview rows and stranding the ellipsis on an empty line), and the mid-word `slice(0, 180)` became a 300-char guard with CSS deciding where truncation lands. Known gaps left for later slices: `ItemWithMeta` still omits `url`/`fileUrl` so Link and File cards render title-only, `/items/files` and `/items/images` have no Pro gate (`isProUser()` doesn't exist yet), and `getItemsByType` has no pagination (Completed)
 - **Unit Testing Setup (Vitest)** - Added `vitest@4` as the only new devDependency plus `vitest.config.ts`: `node` environment, `@/*` alias resolved via `fileURLToPath` (mirrors `tsconfig.json` without adding `vite-tsconfig-paths`), `restoreMocks`/`unstubEnvs` on, and an `include` deliberately limited to `src/lib/**/*.test.ts` and `src/actions/**/*.test.ts` so component/page tests can't creep in. Vitest globals left off so `tsconfig.json` needed no `types` entry — tests import `describe`/`it`/`expect`/`vi` explicitly and `npx tsc --noEmit` stays clean with test files inside the TS project. New scripts `npm run test` (`vitest run`) and `npm run test:watch`. Initial suites (32 tests) cover the existing pure utilities: `utils.test.ts` (`cn` merge/conflict behaviour, `relativeTime` boundaries at 60m/24h with `vi.useFakeTimers`), `features.test.ts` (`isEmailVerificationEnabled` prod/dev defaults + explicit flag parsing), `rate-limit.test.ts` (`getClientIp` header precedence, `formatRetryAfter` pluralisation/rounding, `checkRateLimit` fail-open on null limiter and on a throwing limiter, `tooManyRequestsResponse` 429 body + `Retry-After` clamp), and `verification.test.ts` (`getBaseUrl`, establishing the `vi.mock("@/lib/prisma")` pattern so DB-importing modules stay hermetic). No server actions exist yet (`src/actions/` is still empty) — the config is ready for them. Docs updated: `CLAUDE.md` commands, new Testing section in `context/coding-standards.md` (+ test-file naming under File Organization), `context/ai-interaction.md` workflow step 4/6 now require `npm run test` before commit plus a new Testing section scoping tests to actions/utilities only, and `context/project-overview.md` gained a Testing tech-stack row and a Development Notes testing subsection. Spec: `context/features/unit-testing-spec.md` (Completed)
+- **Items List Three-Column Grid** - The `/items/[type]` grid was capped at two columns (`grid-cols-1 md:grid-cols-2`); it now reads `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`, byte-identical to the collections grid on `src/app/dashboard/page.tsx:106` so the two views share one breakpoint rhythm. Chosen over the conservative `md:grid-cols-2 lg:grid-cols-3` variant: the 2-column jump moves down from `md` (768px) to `sm` (640px), which holds up because the sidebar has already collapsed to a hamburger below `md`, so the content area gets the full viewport and two ~290px cards stay readable. Verified in the browser at 1440px (three columns, two full rows on `/items/links`), 768px (two columns, sidebar still expanded), 660px (two columns, sidebar collapsed — the band whose behaviour actually changed) and 375px (single column). `ItemCard` needed no changes: it is `flex-col` with an `mt-auto` footer, so cards stretch to row height and footers stay aligned as the column narrows. One line of presentational markup, so `/feature test` correctly wrote no tests — a test could only restate the class string, and Vitest's `node` environment cannot observe rendered layout anyway; the existing 32 tests stayed green. Note the Vitest feature was committed and merged as part of this cycle, having been left uncommitted at the end of the previous one (Completed)
