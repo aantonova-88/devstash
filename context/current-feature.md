@@ -2,7 +2,7 @@
 
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
@@ -17,8 +17,8 @@ Not Started
   `grid grid-cols-1 md:grid-cols-2 gap-4`
 - Proposed: `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4` — byte-identical to the
   collections grid on `src/app/dashboard/page.tsx:106`, so the two views match
-- Note this shifts the 2-column breakpoint from `md` (768px) down to `sm` (640px); if that
-  feels too tight on small tablets, `md:grid-cols-2 lg:grid-cols-3` is the conservative variant
+- **Decided:** `sm:grid-cols-2 lg:grid-cols-3` — matches the dashboard exactly; the 2-column
+  jump moves from `md` (768px) down to `sm` (640px)
 - Tailwind v4 — no config file; these are stock utility classes, nothing to add to `@theme`
 - Nothing testable here (pure presentational markup) — Vitest scope stays on actions/utilities,
   so `/feature test` should come back empty for this one
