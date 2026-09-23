@@ -3,7 +3,7 @@ import { File } from "lucide-react"
 import { auth } from "@/auth"
 import { getItemTypeBySlug, getItemsByType } from "@/lib/db/items"
 import { ICON_MAP } from "@/lib/icons"
-import { ItemCard } from "@/components/dashboard/ItemCard"
+import { ItemGrid } from "@/components/items/ItemGrid"
 
 export default async function ItemsByTypePage({
   params,
@@ -48,15 +48,7 @@ export default async function ItemsByTypePage({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              icon={ICON_MAP[item.type.icon] ?? File}
-            />
-          ))}
-        </div>
+        <ItemGrid items={items} />
       )}
     </main>
   )

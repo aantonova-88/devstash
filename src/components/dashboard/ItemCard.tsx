@@ -1,5 +1,7 @@
+"use client"
+
 import { type LucideIcon } from "lucide-react"
-import { relativeTime } from "@/lib/utils"
+import { cn, relativeTime } from "@/lib/utils"
 
 interface ItemCardProps {
   item: {
@@ -12,6 +14,8 @@ interface ItemCardProps {
     updatedAt: string
   }
   icon: LucideIcon
+  /** Opens the item drawer. Omit to render a static, non-interactive card. */
+  onSelect?: () => void
 }
 
 
@@ -24,13 +28,29 @@ function contentPreview(content: string) {
     .slice(0, 300)
 }
 
-export function ItemCard({ item, icon: Icon }: ItemCardProps) {
+export function ItemCard({ item, icon: Icon, onSelect }: ItemCardProps) {
   const preview = item.content ? contentPreview(item.content) : null
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (!onSelect) return
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      onSelect()
+    }
+  }
 
   return (
     <div
-      className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3"
+      className={cn(
+        "rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3",
+        onSelect &&
+          "cursor-pointer transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      )}
       style={{ borderLeftColor: item.type.color }}
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={handleKeyDown}
     >
       <div
         className="flex items-center gap-1.5 self-start text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded"

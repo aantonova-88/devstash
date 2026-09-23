@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { cn, relativeTime } from "@/lib/utils"
+import { cn, relativeTime, formatDate, formatFileSize } from "@/lib/utils"
 
 describe("cn", () => {
   it("joins class names", () => {
@@ -61,5 +61,41 @@ describe("relativeTime", () => {
   it("accepts an ISO string as well as a Date", () => {
     freeze()
     expect(relativeTime(ago(2 * 60 * 60_000).toISOString())).toBe("2h ago")
+  })
+})
+
+describe("formatDate", () => {
+  // formatDate renders in the runtime's local zone, so these build their dates
+  // from local components: a hard-coded UTC instant would format as the
+  // previous day west of UTC and make the suite fail by timezone.
+  it("formats an ISO string as a padded, abbreviated date", () => {
+    const localMay3 = new Date(2026, 4, 3, 12)
+
+    expect(formatDate(localMay3.toISOString())).toBe("May 03, 2026")
+  })
+
+  it("accepts a Date", () => {
+    expect(formatDate(new Date(2026, 11, 25))).toBe("Dec 25, 2026")
+  })
+
+  it("pads single-digit days", () => {
+    expect(formatDate(new Date(2026, 0, 7))).toBe("Jan 07, 2026")
+  })
+})
+
+describe("formatFileSize", () => {
+  it("reports bytes below 1 KB", () => {
+    expect(formatFileSize(0)).toBe("0 B")
+    expect(formatFileSize(1023)).toBe("1023 B")
+  })
+
+  it("switches to KB at 1024 bytes", () => {
+    expect(formatFileSize(1024)).toBe("1.0 KB")
+    expect(formatFileSize(1536)).toBe("1.5 KB")
+  })
+
+  it("switches to MB at 1024 KB", () => {
+    expect(formatFileSize(1024 * 1024)).toBe("1.0 MB")
+    expect(formatFileSize(5 * 1024 * 1024)).toBe("5.0 MB")
   })
 })
