@@ -12,7 +12,7 @@ import { getPinnedItems, getRecentItems, getItemStats } from "@/lib/db/items"
 import { getRecentCollections } from "@/lib/db/collections"
 import { relativeTime } from "@/lib/utils"
 import { ICON_MAP } from "@/lib/icons"
-import { ItemCard } from "@/components/dashboard/ItemCard"
+import { ItemGrid } from "@/components/items/ItemGrid"
 import { CollectionCard } from "@/components/dashboard/CollectionCard"
 
 
@@ -80,15 +80,10 @@ export default async function DashboardPage() {
               Manage →
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {pinnedItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                icon={ICON_MAP[item.type.icon] ?? File}
-              />
-            ))}
-          </div>
+          <ItemGrid
+            items={pinnedItems}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+          />
         </section>
       )}
 

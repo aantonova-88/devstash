@@ -210,3 +210,80 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
     })),
   }
 }
+
+export interface ItemDetail {
+  id: string
+  title: string
+  description: string | null
+  content: string | null
+  url: string | null
+  fileUrl: string | null
+  fileName: string | null
+  fileSize: number | null
+  language: string | null
+  isFavorite: boolean
+  isPinned: boolean
+  aiSummary: string | null
+  aiTags: string[]
+  lastUsedAt: string | null
+  createdAt: string
+  updatedAt: string
+  type: ItemTypeSummary
+  tags: { name: string }[]
+  collections: { id: string; name: string }[]
+}
+
+/**
+ * Full detail for a single item, used by the item drawer.
+ * Scoped by `userId` so one user can never read another's item — an unknown
+ * or foreign id both return null, which the API route turns into a 404.
+ */
+export async function getItemById(
+  userId: string,
+  itemId: string
+): Promise<ItemDetail | null> {
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, userId },
+    include: {
+      type: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          icon: true,
+          color: true,
+          category: true,
+        },
+      },
+      tags: { include: { tag: { select: { name: true } } } },
+      collections: {
+        include: { collection: { select: { id: true, name: true } } },
+        orderBy: { addedAt: "asc" },
+      },
+    },
+  })
+
+  if (!item) return null
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    content: item.content,
+    url: item.url,
+    fileUrl: item.fileUrl,
+    fileName: item.fileName,
+    fileSize: item.fileSize,
+    language: item.language,
+    isFavorite: item.isFavorite,
+    isPinned: item.isPinned,
+    aiSummary: item.aiSummary,
+    aiTags: item.aiTags,
+    lastUsedAt: item.lastUsedAt?.toISOString() ?? null,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+    type: item.type,
+    tags: item.tags.map(({ tag }) => ({ name: tag.name })),
+    collections: item.collections.map(({ collection }) => collection),
+  }
+}
