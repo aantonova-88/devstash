@@ -244,27 +244,41 @@ export async function getItemById(
 ): Promise<ItemDetail | null> {
   const item = await prisma.item.findFirst({
     where: { id: itemId, userId },
-    include: {
-      type: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          icon: true,
-          color: true,
-          category: true,
-        },
-      },
-      tags: { include: { tag: { select: { name: true } } } },
-      collections: {
-        include: { collection: { select: { id: true, name: true } } },
-        orderBy: { addedAt: "asc" },
-      },
-    },
+    include: itemDetailInclude,
   })
 
   if (!item) return null
 
+  return serializeItemDetail(item)
+}
+
+/**
+ * Fields every ItemDetail query needs. Shared so `getItemById` and `updateItem`
+ * can hand their result to the same serializer.
+ */
+const itemDetailInclude = {
+  type: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      icon: true,
+      color: true,
+      category: true,
+    },
+  },
+  tags: { include: { tag: { select: { name: true } } } },
+  collections: {
+    include: { collection: { select: { id: true, name: true } } },
+    orderBy: { addedAt: "asc" },
+  },
+} as const
+
+type ItemDetailRow = Awaited<
+  ReturnType<typeof prisma.item.findFirstOrThrow<{ include: typeof itemDetailInclude }>>
+>
+
+function serializeItemDetail(item: ItemDetailRow): ItemDetail {
   return {
     id: item.id,
     title: item.title,
@@ -285,5 +299,54 @@ export async function getItemById(
     type: item.type,
     tags: item.tags.map(({ tag }) => ({ name: tag.name })),
     collections: item.collections.map(({ collection }) => collection),
+  }
+}
+
+export interface UpdateItemFields {
+  title: string
+  description: string | null
+  content: string | null
+  language: string | null
+  url: string | null
+  tags: string[]
+}
+
+/**
+ * Update one item and replace its tag set.
+ *
+ * The `userId` in the `where` clause is the ownership check: Prisma throws
+ * P2025 when no row matches, so another user's id behaves exactly like an
+ * unknown one and this returns null. Tags are replaced wholesale — the join
+ * rows are dropped and recreated, with `connectOrCreate` on `Tag` because
+ * `Tag.name` is unique across all users.
+ */
+export async function updateItem(
+  userId: string,
+  itemId: string,
+  fields: UpdateItemFields
+): Promise<ItemDetail | null> {
+  const { tags, ...scalars } = fields
+
+  try {
+    const item = await prisma.item.update({
+      where: { id: itemId, userId },
+      data: {
+        ...scalars,
+        tags: {
+          deleteMany: {},
+          create: tags.map((name) => ({
+            tag: {
+              connectOrCreate: { where: { name }, create: { name } },
+            },
+          })),
+        },
+      },
+      include: itemDetailInclude,
+    })
+
+    return serializeItemDetail(item)
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2025") return null
+    throw err
   }
 }

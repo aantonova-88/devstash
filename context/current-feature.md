@@ -1,16 +1,30 @@
-# Current Feature
+# Current Feature: Item Drawer — Edit Mode
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Edit button in the item drawer action bar toggles the open drawer from view mode to inline edit mode (no separate page)
+- In edit mode the action bar is replaced by Save and Cancel; Cancel discards changes, Save persists and returns to view mode
+- Editable for all types: title (required), description (optional textarea), tags (comma-separated input → tag array on save)
+- Type-specific editable fields: content (snippet, prompt, command, note), language (snippet, command), url (link)
+- Item type, collections, and created/updated dates stay display-only in edit mode
+- New `updateItem(itemId, data)` server action in `src/actions/items.ts` — `auth()` session, ownership check, Zod validation, `{ success, data, error }` return
+- New `updateItem` query function in `src/lib/db/items.ts` — tag disconnect-all then connect-or-create; returns the updated `ItemDetail`
+- Drawer refreshes from the action's returned `ItemDetail` (no second fetch) and calls `router.refresh()` so the card list reflects changes
+- Toast on save success and on error
 
 ## Notes
 
-None
+- Spec: `context/features/item-drawer-edit-spec.md`
+- Zod schema per coding standards: `title` non-empty trimmed string; `description`/`content`/`language` string-or-null optional; `url` valid URL or null; `tags` array of trimmed non-empty strings. Zod errors come back in the `error` field so the client can display them.
+- No form library — controlled inputs with local state
+- Client-side guard: Save disabled while title is empty; server-side Zod is the source of truth
+- Content textarea is a plain textarea — no code editor yet
+- This unblocks one of the four disabled action-bar buttons left from the Item Drawer slice (Favourite / Pin / Delete still await their own mutations)
+- Unit tests required for the new server action (`src/actions/items.ts`) and the `updateItem` query — both are in the Vitest `include` scope
 
 ## History
 
