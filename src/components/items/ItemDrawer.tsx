@@ -20,6 +20,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { ItemEditForm } from "@/components/items/ItemEditForm"
 import { ICON_MAP } from "@/lib/icons"
 import { cn, formatDate, formatFileSize, relativeTime } from "@/lib/utils"
 import type { ItemDetail } from "@/lib/db/items"
@@ -77,7 +78,11 @@ export function ItemDrawer({ itemId, open, onOpenChange }: ItemDrawerProps) {
             <p className="text-sm text-muted-foreground">{current.error}</p>
           </div>
         ) : current?.item ? (
-          <ItemDrawerBody item={current.item} />
+          <ItemDrawerBody
+            key={current.item.id}
+            item={current.item}
+            onSaved={(item) => setDetail({ id: item.id, item })}
+          />
         ) : (
           <ItemDrawerSkeleton />
         )}
@@ -86,8 +91,15 @@ export function ItemDrawer({ itemId, open, onOpenChange }: ItemDrawerProps) {
   )
 }
 
-function ItemDrawerBody({ item }: { item: ItemDetail }) {
+function ItemDrawerBody({
+  item,
+  onSaved,
+}: {
+  item: ItemDetail
+  onSaved: (item: ItemDetail) => void
+}) {
   const Icon = ICON_MAP[item.type.icon] ?? File
+  const [editing, setEditing] = useState(false)
 
   async function copyContent() {
     const value = item.content ?? item.url ?? item.fileUrl
@@ -112,13 +124,44 @@ function ItemDrawerBody({ item }: { item: ItemDetail }) {
           {item.type.name}
         </span>
         <SheetTitle className="font-serif text-2xl leading-tight">
-          {item.title}
+          {editing ? "Edit item" : item.title}
         </SheetTitle>
-        {item.description && (
+        {!editing && item.description && (
           <SheetDescription>{item.description}</SheetDescription>
         )}
       </SheetHeader>
 
+      {editing ? (
+        <ItemEditForm
+          item={item}
+          onCancel={() => setEditing(false)}
+          onSaved={(updated) => {
+            onSaved(updated)
+            setEditing(false)
+          }}
+        />
+      ) : (
+        <ItemDrawerView
+          item={item}
+          onCopy={copyContent}
+          onEdit={() => setEditing(true)}
+        />
+      )}
+    </>
+  )
+}
+
+function ItemDrawerView({
+  item,
+  onCopy: copyContent,
+  onEdit,
+}: {
+  item: ItemDetail
+  onCopy: () => void
+  onEdit: () => void
+}) {
+  return (
+    <>
       <div className="flex-1 space-y-6 overflow-auto p-6">
         <ItemContent item={item} onCopy={copyContent} />
 
@@ -163,7 +206,7 @@ function ItemDrawerBody({ item }: { item: ItemDetail }) {
         )}
       </div>
 
-      <ItemActionBar item={item} onCopy={copyContent} />
+      <ItemActionBar item={item} onCopy={copyContent} onEdit={onEdit} />
     </>
   )
 }
@@ -264,11 +307,19 @@ function ItemContent({ item, onCopy }: { item: ItemDetail; onCopy: () => void })
   )
 }
 
-function ItemActionBar({ item, onCopy }: { item: ItemDetail; onCopy: () => void }) {
+function ItemActionBar({
+  item,
+  onCopy,
+  onEdit,
+}: {
+  item: ItemDetail
+  onCopy: () => void
+  onEdit: () => void
+}) {
   const hasCopyableContent = Boolean(item.content ?? item.url ?? item.fileUrl)
 
-  // Favourite, pin, edit and delete need the item mutations that arrive with
-  // the CRUD slice; until then they show state but stay inert.
+  // Favourite, pin and delete need mutations that have not been written yet;
+  // until then they show state but stay inert.
   return (
     <div className="flex items-center gap-2 border-t border-border p-4">
       <Button
@@ -301,7 +352,7 @@ function ItemActionBar({ item, onCopy }: { item: ItemDetail; onCopy: () => void 
         <Copy />
         Copy
       </Button>
-      <Button className="flex-1" disabled>
+      <Button className="flex-1" onClick={onEdit}>
         <Pencil />
         Edit
       </Button>

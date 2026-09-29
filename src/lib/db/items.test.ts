@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const findFirst = vi.fn()
+const update = vi.fn()
 
 // items.ts imports the Prisma client at module scope; mocking it keeps the
 // suite hermetic and offline.
-vi.mock("@/lib/prisma", () => ({ prisma: { item: { findFirst } } }))
+vi.mock("@/lib/prisma", () => ({ prisma: { item: { findFirst, update } } }))
 
-const { getItemById } = await import("@/lib/db/items")
+const { getItemById, updateItem } = await import("@/lib/db/items")
 
 const TYPE = {
   id: "type_1",
@@ -47,7 +48,17 @@ function itemRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   findFirst.mockReset()
+  update.mockReset()
 })
+
+const FIELDS = {
+  title: "Renamed hook",
+  description: "Updated description",
+  content: "export function useDebounce() { return 1 }",
+  language: "typescript",
+  url: null,
+  tags: ["react", "hooks"],
+}
 
 describe("getItemById", () => {
   it("scopes the query to the owning user", async () => {
@@ -123,5 +134,84 @@ describe("getItemById", () => {
     expect(item?.content).toBeNull()
     expect(item?.url).toBe("https://example.com")
     expect(item?.language).toBeNull()
+  })
+})
+
+describe("updateItem", () => {
+  it("scopes the update to the owning user", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update.mock.calls[0][0].where).toEqual({
+      id: "item_1",
+      userId: "user_1",
+    })
+  })
+
+  it("writes the scalar fields without leaking the tag list into them", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    const { data } = update.mock.calls[0][0]
+    expect(data.title).toBe("Renamed hook")
+    expect(data.description).toBe("Updated description")
+    expect(data.content).toBe("export function useDebounce() { return 1 }")
+    expect(data.language).toBe("typescript")
+    expect(data.url).toBeNull()
+    expect(data.tags).not.toEqual(["react", "hooks"])
+  })
+
+  it("replaces the tag set with connectOrCreate join rows", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    const { tags } = update.mock.calls[0][0].data
+    expect(tags.deleteMany).toEqual({})
+    expect(tags.create).toEqual([
+      { tag: { connectOrCreate: { where: { name: "react" }, create: { name: "react" } } } },
+      { tag: { connectOrCreate: { where: { name: "hooks" }, create: { name: "hooks" } } } },
+    ])
+  })
+
+  it("clears every tag when the list is empty", async () => {
+    update.mockResolvedValue(itemRow({ tags: [] }))
+
+    const result = await updateItem("user_1", "item_1", { ...FIELDS, tags: [] })
+
+    const { tags } = update.mock.calls[0][0].data
+    expect(tags.deleteMany).toEqual({})
+    expect(tags.create).toEqual([])
+    expect(result?.tags).toEqual([])
+  })
+
+  it("returns the updated item serialized as an ItemDetail", async () => {
+    update.mockResolvedValue(itemRow({ title: "Renamed hook" }))
+
+    const result = await updateItem("user_1", "item_1", FIELDS)
+
+    expect(result?.title).toBe("Renamed hook")
+    expect(result?.createdAt).toBe("2026-05-01T09:00:00.000Z")
+    expect(result?.updatedAt).toBe("2026-05-02T09:00:00.000Z")
+    expect(result?.tags).toEqual([{ name: "react" }, { name: "hooks" }])
+    expect(result?.collections).toEqual([
+      { id: "col_1", name: "React Patterns" },
+      { id: "col_2", name: "Utilities" },
+    ])
+  })
+
+  it("returns null when no row matches the id and user (Prisma P2025)", async () => {
+    update.mockRejectedValue(Object.assign(new Error("Record not found"), { code: "P2025" }))
+
+    await expect(updateItem("user_2", "item_1", FIELDS)).resolves.toBeNull()
+  })
+
+  it("rethrows errors that are not a missing record", async () => {
+    update.mockRejectedValue(Object.assign(new Error("connection lost"), { code: "P1001" }))
+
+    await expect(updateItem("user_1", "item_1", FIELDS)).rejects.toThrow("connection lost")
   })
 })
