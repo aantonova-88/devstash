@@ -1,16 +1,29 @@
-# Current Feature
+# Current Feature: Delete Item
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Wire up the Delete (trash) button in the item drawer action bar — currently rendered but `disabled` (`src/components/items/ItemDrawer.tsx:360`)
+- Add a `deleteItem(itemId)` server action in `src/actions/items.ts` following the existing `updateItem` pattern: `auth()` -> ownership-scoped query -> `revalidatePath` -> `{ success, data, error }`
+- Add a `deleteItem(userId, itemId)` query in `src/lib/db/items.ts` that scopes the delete by `userId` so a foreign id behaves exactly like a missing one
+- Show a shadcn `AlertDialog` confirmation before deleting — destructive Delete + Cancel, naming the item title
+- On success: close the dialog, close the drawer, Sonner success toast, and refresh the grid behind it so the card disappears
+- On failure: keep the drawer open and surface the error as a destructive toast
+- Unit tests for the new server action and query; `npm run test`, `npm run lint`, `npm run build` all green
 
 ## Notes
 
-None
+- **Confirmation primitive**: `src/components/ui/` has no `alert-dialog` yet — needs `npx shadcn@latest add alert-dialog`. Past shadcn generations in this project emitted a broken `import { cn } from "cn"`; check and correct to `@/lib/utils`. (The profile page's delete-account card used an inline expand/confirm pattern instead of a dialog — this feature deliberately uses the shadcn dialog as requested.)
+- **Deletion strategy**: hard delete. `Item` has cascade deletes onto `ItemTag` and `ItemCollection`, so one `prisma.item.delete` is enough. There is no soft-delete column in the schema and adding one is out of scope.
+- **Ownership**: mirror `updateItem` — `prisma.item.delete({ where: { id, userId } })` (extendedWhereUnique), catch `P2025` -> `null`, rethrow other Prisma codes. No existence leak.
+- **Revalidation**: the action needs the deleted item's `type.slug` to revalidate `/items/<slug>`; return it from the query (delete returns the deleted row) rather than doing a second lookup. Also revalidate `/dashboard`.
+- **Client flow**: `ItemDrawer` owns the dialog state; on success call `onOpenChange(false)` and `router.refresh()`. `ItemGrid` keeps `selectedId` after close by design, so nothing else needs to change there.
+- **Toasts**: Sonner is already wired (used by Copy and by the edit form).
+- **Out of scope**: bulk delete, undo/restore, deleting from the card without opening the drawer, and pruning orphaned `Tag` rows (a known gap carried over from the edit slice).
+- Favourite and Pin remain disabled — they get their own slice.
 
 ## History
 

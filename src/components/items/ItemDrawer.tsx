@@ -10,7 +10,6 @@ import {
   Pin,
   Sparkles,
   Star,
-  Trash2,
 } from "lucide-react"
 import {
   Sheet,
@@ -20,6 +19,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { DeleteItemDialog } from "@/components/items/DeleteItemDialog"
 import { ItemEditForm } from "@/components/items/ItemEditForm"
 import { ICON_MAP } from "@/lib/icons"
 import { cn, formatDate, formatFileSize, relativeTime } from "@/lib/utils"
@@ -82,6 +82,7 @@ export function ItemDrawer({ itemId, open, onOpenChange }: ItemDrawerProps) {
             key={current.item.id}
             item={current.item}
             onSaved={(item) => setDetail({ id: item.id, item })}
+            onDeleted={() => onOpenChange(false)}
           />
         ) : (
           <ItemDrawerSkeleton />
@@ -94,9 +95,11 @@ export function ItemDrawer({ itemId, open, onOpenChange }: ItemDrawerProps) {
 function ItemDrawerBody({
   item,
   onSaved,
+  onDeleted,
 }: {
   item: ItemDetail
   onSaved: (item: ItemDetail) => void
+  onDeleted: () => void
 }) {
   const Icon = ICON_MAP[item.type.icon] ?? File
   const [editing, setEditing] = useState(false)
@@ -145,6 +148,7 @@ function ItemDrawerBody({
           item={item}
           onCopy={copyContent}
           onEdit={() => setEditing(true)}
+          onDeleted={onDeleted}
         />
       )}
     </>
@@ -155,10 +159,12 @@ function ItemDrawerView({
   item,
   onCopy: copyContent,
   onEdit,
+  onDeleted,
 }: {
   item: ItemDetail
   onCopy: () => void
   onEdit: () => void
+  onDeleted: () => void
 }) {
   return (
     <>
@@ -206,7 +212,12 @@ function ItemDrawerView({
         )}
       </div>
 
-      <ItemActionBar item={item} onCopy={copyContent} onEdit={onEdit} />
+      <ItemActionBar
+        item={item}
+        onCopy={copyContent}
+        onEdit={onEdit}
+        onDeleted={onDeleted}
+      />
     </>
   )
 }
@@ -311,15 +322,17 @@ function ItemActionBar({
   item,
   onCopy,
   onEdit,
+  onDeleted,
 }: {
   item: ItemDetail
   onCopy: () => void
   onEdit: () => void
+  onDeleted: () => void
 }) {
   const hasCopyableContent = Boolean(item.content ?? item.url ?? item.fileUrl)
 
-  // Favourite, pin and delete need mutations that have not been written yet;
-  // until then they show state but stay inert.
+  // Favourite and pin need mutations that have not been written yet; until
+  // then they show state but stay inert.
   return (
     <div className="flex items-center gap-2 border-t border-border p-4">
       <Button
@@ -357,9 +370,7 @@ function ItemActionBar({
         Edit
       </Button>
 
-      <Button variant="destructive" size="icon" disabled aria-label="Delete item">
-        <Trash2 />
-      </Button>
+      <DeleteItemDialog itemId={item.id} title={item.title} onDeleted={onDeleted} />
     </div>
   )
 }
