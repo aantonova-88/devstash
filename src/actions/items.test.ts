@@ -3,16 +3,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const auth = vi.fn()
 const updateItemQuery = vi.fn()
 const deleteItemQuery = vi.fn()
+const createItemQuery = vi.fn()
+const getSystemItemTypeById = vi.fn()
 const revalidatePath = vi.fn()
 
 vi.mock("@/auth", () => ({ auth }))
 vi.mock("@/lib/db/items", () => ({
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
+  createItem: createItemQuery,
+  getSystemItemTypeById,
 }))
 vi.mock("next/cache", () => ({ revalidatePath }))
 
-const { updateItem, deleteItem } = await import("@/actions/items")
+const { updateItem, deleteItem, createItem } = await import("@/actions/items")
 
 const INPUT = {
   title: "Renamed hook",
@@ -246,5 +250,192 @@ describe("deleteItem", () => {
 
       expect(revalidatePath).not.toHaveBeenCalled()
     })
+  })
+})
+
+const SNIPPET_TYPE = {
+  id: "type_1",
+  name: "Snippet",
+  slug: "snippets",
+  icon: "Code",
+  color: "#3b82f6",
+  category: "TEXT",
+}
+
+const LINK_TYPE = {
+  id: "type_5",
+  name: "Link",
+  slug: "links",
+  icon: "Link",
+  color: "#10b981",
+  category: "URL",
+}
+
+const FILE_TYPE = {
+  id: "type_6",
+  name: "File",
+  slug: "files",
+  icon: "File",
+  color: "#6b7280",
+  category: "FILE",
+}
+
+const CREATE_INPUT = {
+  typeId: "type_1",
+  title: "useDebounce hook",
+  description: "A reusable React hook",
+  content: "export function useDebounce() {}",
+  language: "typescript",
+  url: null,
+  tags: ["react"],
+}
+
+const CREATED = { id: "item_9", title: "useDebounce hook", type: SNIPPET_TYPE }
+
+describe("createItem", () => {
+  beforeEach(() => {
+    createItemQuery.mockReset()
+    getSystemItemTypeById.mockReset()
+    auth.mockResolvedValue({ user: { id: "user_1" } })
+    getSystemItemTypeById.mockResolvedValue(SNIPPET_TYPE)
+    createItemQuery.mockResolvedValue(CREATED)
+  })
+
+  it("returns the created item on success", async () => {
+    const result = await createItem(CREATE_INPUT)
+
+    expect(result).toEqual({ success: true, data: CREATED })
+  })
+
+  it("creates the item for the session user, not anyone named in the input", async () => {
+    await createItem({ ...CREATE_INPUT, userId: "user_2" } as never)
+
+    expect(createItemQuery.mock.calls[0][0]).toBe("user_1")
+  })
+
+  it("resolves the type id against the database before using it", async () => {
+    await createItem(CREATE_INPUT)
+
+    expect(getSystemItemTypeById).toHaveBeenCalledWith("type_1")
+  })
+
+  it("resolves the parsed type id, not the raw one", async () => {
+    await createItem({ ...CREATE_INPUT, typeId: "  type_1  " })
+
+    expect(getSystemItemTypeById).toHaveBeenCalledWith("type_1")
+  })
+
+  it("rejects a type id that is not a system type, without writing", async () => {
+    getSystemItemTypeById.mockResolvedValue(null)
+
+    const result = await createItem({ ...CREATE_INPUT, typeId: "type_someone_elses" })
+
+    expect(result).toEqual({ success: false, error: "Unknown item type" })
+    expect(createItemQuery).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("stores the type id the database returned, not the one the client sent", async () => {
+    await createItem(CREATE_INPUT)
+
+    expect(createItemQuery.mock.calls[0][1].typeId).toBe(SNIPPET_TYPE.id)
+  })
+
+  it("drops content fields the resolved type cannot hold", async () => {
+    getSystemItemTypeById.mockResolvedValue(LINK_TYPE)
+
+    // A crafted request sends both content and a url for a Link type.
+    await createItem({
+      ...CREATE_INPUT,
+      typeId: LINK_TYPE.id,
+      content: "not allowed here",
+      url: "https://example.com",
+    })
+
+    expect(createItemQuery.mock.calls[0][1]).toMatchObject({
+      content: null,
+      url: "https://example.com",
+      language: null,
+    })
+  })
+
+  it("rejects a URL type with no url", async () => {
+    getSystemItemTypeById.mockResolvedValue(LINK_TYPE)
+
+    const result = await createItem({ ...CREATE_INPUT, typeId: LINK_TYPE.id, url: null })
+
+    expect(result).toEqual({
+      success: false,
+      error: "A URL is required for this item type.",
+    })
+    expect(createItemQuery).not.toHaveBeenCalled()
+  })
+
+  it("rejects FILE types even though the dialog never offers them", async () => {
+    getSystemItemTypeById.mockResolvedValue(FILE_TYPE)
+
+    const result = await createItem({ ...CREATE_INPUT, typeId: FILE_TYPE.id })
+
+    expect(result).toEqual({
+      success: false,
+      error: "File and image items are not supported yet.",
+    })
+    expect(createItemQuery).not.toHaveBeenCalled()
+  })
+
+  it("hands the query the parsed data, not the raw input", async () => {
+    await createItem({ ...CREATE_INPUT, title: "  Padded  ", description: "" })
+
+    expect(createItemQuery.mock.calls[0][1]).toMatchObject({
+      title: "Padded",
+      description: null,
+    })
+  })
+
+  it("revalidates the dashboard and the resolved type's listing", async () => {
+    await createItem(CREATE_INPUT)
+
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard")
+    expect(revalidatePath).toHaveBeenCalledWith("/items/snippets")
+  })
+
+  it("revalidates the slug the database returned rather than one derived locally", async () => {
+    getSystemItemTypeById.mockResolvedValue({ ...SNIPPET_TYPE, slug: "renamed-slug" })
+
+    await createItem(CREATE_INPUT)
+
+    expect(revalidatePath).toHaveBeenCalledWith("/items/renamed-slug")
+  })
+
+  it.each([
+    ["no session", null],
+    ["a session with no user", {}],
+    ["a user with no id", { user: {} }],
+  ])("rejects %s without touching the database", async (_label, session) => {
+    auth.mockResolvedValue(session)
+
+    const result = await createItem(CREATE_INPUT)
+
+    expect(result).toEqual({ success: false, error: "Not authenticated" })
+    expect(getSystemItemTypeById).not.toHaveBeenCalled()
+    expect(createItemQuery).not.toHaveBeenCalled()
+  })
+
+  it("rejects invalid input before resolving the type", async () => {
+    const result = await createItem({ ...CREATE_INPUT, title: "   " })
+
+    expect(result).toEqual({ success: false, error: "Title is required" })
+    expect(getSystemItemTypeById).not.toHaveBeenCalled()
+  })
+
+  it("logs the real failure but returns a generic message", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    createItemQuery.mockRejectedValue(new Error("connection reset"))
+
+    const result = await createItem(CREATE_INPUT)
+
+    expect(result).toEqual({ success: false, error: "Could not create this item." })
+    expect(consoleError).toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
   })
 })

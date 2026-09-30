@@ -6,10 +6,10 @@ import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { updateItem } from "@/actions/items"
-import { parseTagInput } from "@/lib/validation/item"
+import { Field } from "@/components/items/Field"
+import { LANGUAGE_SLUGS, parseTagInput } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
 interface ItemEditFormProps {
@@ -17,9 +17,6 @@ interface ItemEditFormProps {
   onCancel: () => void
   onSaved: (item: ItemDetail) => void
 }
-
-/** Types whose `language` column is meaningful. */
-const LANGUAGE_SLUGS = new Set(["snippets", "commands"])
 
 /**
  * Inline edit form for the item drawer. Controlled inputs with local state —
@@ -175,30 +172,5 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
         </Button>
       </div>
     </form>
-  )
-}
-
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string
-  htmlFor: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label
-        htmlFor={htmlFor}
-        className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
-      >
-        {label}
-      </Label>
-      {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
   )
 }

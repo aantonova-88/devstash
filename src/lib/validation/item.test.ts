@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { updateItemSchema, parseTagInput } from "@/lib/validation/item"
+import {
+  updateItemSchema,
+  createItemSchema,
+  contentFieldsForType,
+  parseTagInput,
+} from "@/lib/validation/item"
 
 const VALID = {
   title: "useDebounce hook",
@@ -159,5 +164,136 @@ describe("parseTagInput", () => {
       "server components",
       "react",
     ])
+  })
+})
+
+describe("createItemSchema", () => {
+  it("accepts a valid payload and keeps the type id", () => {
+    const result = createItemSchema.safeParse({ ...VALID, typeId: "type_1" })
+
+    expect(result.success).toBe(true)
+    expect(result.data?.typeId).toBe("type_1")
+  })
+
+  it("requires a type id", () => {
+    const result = createItemSchema.safeParse({ ...VALID, typeId: "" })
+
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0].message).toBe("Select an item type")
+  })
+
+  it("rejects a payload with no type id at all", () => {
+    expect(createItemSchema.safeParse(VALID).success).toBe(false)
+  })
+
+  it("applies the same field rules as updateItemSchema", () => {
+    const create = createItemSchema.safeParse({
+      typeId: "type_1",
+      title: "  Padded  ",
+      description: "   ",
+      url: "ftp://example.com",
+    })
+    const update = updateItemSchema.safeParse({
+      title: "  Padded  ",
+      description: "   ",
+      url: "ftp://example.com",
+    })
+
+    // Both reject on the shared url rule rather than diverging.
+    expect(create.success).toBe(false)
+    expect(update.success).toBe(false)
+    expect(create.error?.issues[0].message).toBe(update.error?.issues[0].message)
+  })
+
+  it("defaults tags to an empty list when the field is absent", () => {
+    const result = createItemSchema.safeParse({ typeId: "type_1", title: "No tags" })
+
+    // The action passes parsed.data.tags straight to the query, so the default
+    // has to survive the spread into createItemSchema.
+    expect(result.data?.tags).toEqual([])
+  })
+
+  it("trims the title and normalises blank optional text to null", () => {
+    const result = createItemSchema.safeParse({
+      typeId: "type_1",
+      title: "  Padded  ",
+      description: "   ",
+      tags: [],
+    })
+
+    expect(result.data).toMatchObject({ title: "Padded", description: null, content: null })
+  })
+})
+
+const TEXT_TYPE = { slug: "notes", category: "TEXT" }
+const SNIPPET_TYPE = { slug: "snippets", category: "TEXT" }
+const COMMAND_TYPE = { slug: "commands", category: "TEXT" }
+const URL_TYPE = { slug: "links", category: "URL" }
+const FILE_TYPE = { slug: "files", category: "FILE" }
+
+const ALL_FIELDS = {
+  content: "export function useDebounce() {}",
+  url: "https://example.com",
+  language: "typescript",
+}
+
+describe("contentFieldsForType", () => {
+  it("keeps content for a TEXT type and drops the url it cannot hold", () => {
+    const result = contentFieldsForType(TEXT_TYPE, ALL_FIELDS)
+
+    expect(result).toEqual({
+      ok: true,
+      fields: { content: ALL_FIELDS.content, url: null, language: null },
+    })
+  })
+
+  // Both language slugs are asserted: with only one covered, dropping the other
+  // from LANGUAGE_SLUGS would silently stop that type saving its language.
+  it.each([
+    ["snippets", SNIPPET_TYPE],
+    ["commands", COMMAND_TYPE],
+  ])("keeps language for %s", (_slug, type) => {
+    const result = contentFieldsForType(type, ALL_FIELDS)
+
+    expect(result.ok && result.fields.language).toBe("typescript")
+  })
+
+  it("drops language for a TEXT type that does not use it", () => {
+    const note = contentFieldsForType(TEXT_TYPE, ALL_FIELDS)
+
+    expect(note.ok && note.fields.language).toBeNull()
+  })
+
+  it("keeps the url for a URL type and drops the content it cannot hold", () => {
+    const result = contentFieldsForType(URL_TYPE, ALL_FIELDS)
+
+    expect(result).toEqual({
+      ok: true,
+      fields: { content: null, url: "https://example.com", language: null },
+    })
+  })
+
+  it("requires a url for a URL type", () => {
+    const result = contentFieldsForType(URL_TYPE, { ...ALL_FIELDS, url: null })
+
+    expect(result).toEqual({
+      ok: false,
+      error: "A URL is required for this item type.",
+    })
+  })
+
+  it("does not require content for a TEXT type", () => {
+    const result = contentFieldsForType(TEXT_TYPE, { ...ALL_FIELDS, content: null })
+
+    expect(result.ok).toBe(true)
+  })
+
+  it("rejects FILE types, which have no way to receive content yet", () => {
+    const result = contentFieldsForType(FILE_TYPE, ALL_FIELDS)
+
+    expect(result).toEqual({
+      ok: false,
+      error: "File and image items are not supported yet.",
+    })
   })
 })

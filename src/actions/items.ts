@@ -3,10 +3,18 @@
 import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
 import {
+  createItem as createItemQuery,
   deleteItem as deleteItemQuery,
+  getSystemItemTypeById,
   updateItem as updateItemQuery,
 } from "@/lib/db/items"
-import { updateItemSchema, type UpdateItemInput } from "@/lib/validation/item"
+import {
+  contentFieldsForType,
+  createItemSchema,
+  updateItemSchema,
+  type CreateItemInput,
+  type UpdateItemInput,
+} from "@/lib/validation/item"
 import type { DeletedItem, ItemDetail } from "@/lib/db/items"
 
 export type ActionResult<T> =
@@ -79,5 +87,54 @@ export async function deleteItem(
   } catch (err) {
     console.error("deleteItem failed", err)
     return { success: false, error: "Could not delete this item." }
+  }
+}
+
+/**
+ * Create one item of a chosen type.
+ *
+ * The request names a type id, so the type is resolved from the database first:
+ * that rejects an unknown or non-system id, and makes the resolved category —
+ * not the client — decide which content fields are stored.
+ */
+export async function createItem(
+  input: CreateItemInput
+): Promise<ActionResult<ItemDetail>> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    const parsed = createItemSchema.safeParse(input)
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message }
+    }
+
+    const type = await getSystemItemTypeById(parsed.data.typeId)
+    if (!type) {
+      return { success: false, error: "Unknown item type" }
+    }
+
+    const content = contentFieldsForType(type, parsed.data)
+    if (!content.ok) {
+      return { success: false, error: content.error }
+    }
+
+    const item = await createItemQuery(session.user.id, {
+      typeId: type.id,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      tags: parsed.data.tags,
+      ...content.fields,
+    })
+
+    revalidatePath("/dashboard")
+    revalidatePath(`/items/${type.slug}`)
+
+    return { success: true, data: item }
+  } catch (err) {
+    console.error("createItem failed", err)
+    return { success: false, error: "Could not create this item." }
   }
 }

@@ -3,14 +3,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const findFirst = vi.fn()
 const update = vi.fn()
 const deleteFn = vi.fn()
+const create = vi.fn()
+const itemTypeFindFirst = vi.fn()
 
 // items.ts imports the Prisma client at module scope; mocking it keeps the
 // suite hermetic and offline.
 vi.mock("@/lib/prisma", () => ({
-  prisma: { item: { findFirst, update, delete: deleteFn } },
+  prisma: {
+    item: { findFirst, update, delete: deleteFn, create },
+    itemType: { findFirst: itemTypeFindFirst },
+  },
 }))
 
-const { getItemById, updateItem, deleteItem } = await import("@/lib/db/items")
+const {
+  getItemById,
+  updateItem,
+  deleteItem,
+  createItem,
+  getSystemItemTypeById,
+} = await import("@/lib/db/items")
 
 const TYPE = {
   id: "type_1",
@@ -53,6 +64,8 @@ beforeEach(() => {
   findFirst.mockReset()
   update.mockReset()
   deleteFn.mockReset()
+  create.mockReset()
+  itemTypeFindFirst.mockReset()
 })
 
 const FIELDS = {
@@ -270,5 +283,94 @@ describe("deleteItem", () => {
     deleteFn.mockRejectedValue(Object.assign(new Error("connection lost"), { code: "P1001" }))
 
     await expect(deleteItem("user_1", "item_1")).rejects.toThrow("connection lost")
+  })
+})
+
+describe("getSystemItemTypeById", () => {
+  it("only resolves system types, so a custom type id cannot be used", async () => {
+    itemTypeFindFirst.mockResolvedValue(TYPE)
+
+    await getSystemItemTypeById("type_1")
+
+    expect(itemTypeFindFirst.mock.calls[0][0].where).toEqual({
+      id: "type_1",
+      isSystem: true,
+    })
+  })
+
+  it("returns null when no system type matches", async () => {
+    itemTypeFindFirst.mockResolvedValue(null)
+
+    expect(await getSystemItemTypeById("type_nope")).toBeNull()
+  })
+})
+
+const CREATE_FIELDS = {
+  typeId: "type_1",
+  title: "useDebounce hook",
+  description: "A reusable React hook",
+  content: "export function useDebounce() {}",
+  language: "typescript",
+  url: null,
+  tags: ["react", "hooks"],
+}
+
+describe("createItem", () => {
+  it("attaches the item to the given user", async () => {
+    create.mockResolvedValue(itemRow())
+
+    await createItem("user_1", CREATE_FIELDS)
+
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      userId: "user_1",
+      typeId: "type_1",
+      title: "useDebounce hook",
+    })
+  })
+
+  it("connects tags by name so existing rows are reused", async () => {
+    create.mockResolvedValue(itemRow())
+
+    await createItem("user_1", CREATE_FIELDS)
+
+    expect(create.mock.calls[0][0].data.tags).toEqual({
+      create: [
+        { tag: { connectOrCreate: { where: { name: "react" }, create: { name: "react" } } } },
+        { tag: { connectOrCreate: { where: { name: "hooks" }, create: { name: "hooks" } } } },
+      ],
+    })
+  })
+
+  it("creates no tag rows when the list is empty", async () => {
+    create.mockResolvedValue(itemRow({ tags: [] }))
+
+    await createItem("user_1", { ...CREATE_FIELDS, tags: [] })
+
+    expect(create.mock.calls[0][0].data.tags).toEqual({ create: [] })
+  })
+
+  it("returns the created item serialized as an ItemDetail", async () => {
+    create.mockResolvedValue(itemRow())
+
+    const item = await createItem("user_1", CREATE_FIELDS)
+
+    expect(item).toMatchObject({
+      id: "item_1",
+      createdAt: "2026-05-01T09:00:00.000Z",
+      type: TYPE,
+      tags: [{ name: "react" }, { name: "hooks" }],
+      collections: [
+        { id: "col_1", name: "React Patterns" },
+        { id: "col_2", name: "Utilities" },
+      ],
+    })
+  })
+
+  it("lets database errors through — there is no ownership check to absorb", async () => {
+    // updateItem and deleteItem map P2025 to null because a missing row means
+    // "not yours". A create has no such row, so even P2025 is a real failure.
+    create.mockRejectedValue(Object.assign(new Error("fk violation"), { code: "P2025" }))
+
+    await expect(createItem("user_1", CREATE_FIELDS)).rejects.toThrow("fk violation")
   })
 })
