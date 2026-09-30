@@ -1,16 +1,33 @@
-# Current Feature
+# Current Feature: Item Create
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Add a "New Item" modal dialog, opened from the existing `New item` button in `src/components/layout/TopBar.tsx:43` (currently inert)
+- Type selector covering the five non-FILE system types: snippet, prompt, command, note, link
+- Fields render conditionally on the selected type:
+  - All types: title (required), description, tags
+  - snippet / command: content, language
+  - prompt / note: content
+  - link: url (required)
+- New `createItem` server action in `src/actions/items.ts` with Zod validation, following the existing `auth()` -> validate -> query -> `revalidatePath` -> `{ success, data, error }` shape
+- New `createItem(userId, fields)` query in `src/lib/db/items.ts`
+- On success: Sonner toast, close the dialog, `router.refresh()`
 
 ## Notes
 
-None
+- **New primitive needed:** `src/components/ui/` has no `dialog.tsx` yet (only `alert-dialog`, `sheet`, etc.). Add it via shadcn — and expect the same two generator quirks seen on `textarea`/`label`/`alert-dialog`: a broken `import { cn } from "cn"` to correct to `@/lib/utils`, and an offer to overwrite `button.tsx`, which must be **declined** (that file carries a custom `xs` size used by the drawer's Copy button).
+- **Reuse over duplication:** `ItemEditForm` already branches its fields on the type's `ContentCategory` (TEXT -> content, URL -> url) plus the `snippets`/`commands` slugs for the language field. The create form needs the same logic with a type *selector* added, so decide up front whether to extract the shared field block or accept two forms.
+- **Validation:** `src/lib/validation/item.ts` holds `updateItemSchema` and `parseTagInput()`. A `createItemSchema` belongs beside it, and it needs a `typeId`/slug field that `updateItemSchema` has no equivalent for. Keep the `""` -> `null` normalisation and the case-insensitive tag dedupe (`Tag.name` is globally unique across users).
+- **Type list source:** the dialog needs the available item types. `getSystemItemTypes(userId)` already exists and the sidebar receives them from the layout server component — prefer threading them down as props over a client-side fetch.
+- **Revalidation:** mirror `updateItem`/`deleteItem` — `revalidatePath("/dashboard")` plus `revalidatePath("/items/<slug>")` for the created item's type.
+- **Security:** `typeId` arrives from the client, so the query must verify the chosen `ItemType` is a system type (or owned by the user) rather than trusting it; `userId` always comes from the session, never the payload.
+- **Out of scope per spec:** File and Image types (no uploads yet, no `isProUser()` gate), and free-tier item limits (`FREE_ITEM_LIMIT = 50` from the project overview is not enforced anywhere yet).
+- **Tests:** `src/actions/items.test.ts`, `src/lib/validation/item.test.ts` and `src/lib/db/items.test.ts` all exist (110 tests total) with established patterns to extend.
+- Spec: `context/features/item-create-spec.md`
 
 ## History
 

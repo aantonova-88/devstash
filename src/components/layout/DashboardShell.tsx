@@ -29,7 +29,7 @@ export function DashboardShell({ children, itemTypes, collections, user }: Dashb
         user={user}
       />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopBar onMobileMenuClick={() => setMobileSidebarOpen(true)} />
+        <TopBar itemTypes={itemTypes} onMobileMenuClick={() => setMobileSidebarOpen(true)} />
         {children}
       </div>
     </div>

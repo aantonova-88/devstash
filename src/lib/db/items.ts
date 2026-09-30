@@ -138,6 +138,27 @@ export const getItemTypeBySlug = cache(
   }
 )
 
+/**
+ * Resolve a client-supplied type id to a system ItemType row.
+ * Restricting to `isSystem` means an id naming another user's custom type
+ * resolves to null rather than being trusted, so the caller can reject it.
+ */
+export async function getSystemItemTypeById(
+  typeId: string
+): Promise<ItemTypeSummary | null> {
+  return prisma.itemType.findFirst({
+    where: { id: typeId, isSystem: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      icon: true,
+      color: true,
+      category: true,
+    },
+  })
+}
+
 export async function getItemsByType(
   userId: string,
   typeId: string
@@ -381,4 +402,46 @@ export async function deleteItem(
     if ((err as { code?: string }).code === "P2025") return null
     throw err
   }
+}
+
+export interface CreateItemFields {
+  typeId: string
+  title: string
+  description: string | null
+  content: string | null
+  language: string | null
+  url: string | null
+  tags: string[]
+}
+
+/**
+ * Create one item for a user and attach its tag set.
+ *
+ * `userId` comes from the caller's session and `typeId` has already been
+ * resolved against `ItemType`, so there is nothing here to authorise — a
+ * failure is a genuine database error and is left to throw. Tags use the same
+ * `connectOrCreate` as `updateItem` because `Tag.name` is unique across users.
+ */
+export async function createItem(
+  userId: string,
+  fields: CreateItemFields
+): Promise<ItemDetail> {
+  const { tags, ...scalars } = fields
+
+  const item = await prisma.item.create({
+    data: {
+      ...scalars,
+      userId,
+      tags: {
+        create: tags.map((name) => ({
+          tag: {
+            connectOrCreate: { where: { name }, create: { name } },
+          },
+        })),
+      },
+    },
+    include: itemDetailInclude,
+  })
+
+  return serializeItemDetail(item)
 }

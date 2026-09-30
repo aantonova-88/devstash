@@ -3,12 +3,15 @@
 import { Search, Plus, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CreateItemDialog } from "@/components/items/CreateItemDialog";
+import type { SidebarItemType } from "@/lib/db/items";
 
 interface TopBarProps {
+  itemTypes: SidebarItemType[]
   onMobileMenuClick?: () => void
 }
 
-export function TopBar({ onMobileMenuClick }: TopBarProps) {
+export function TopBar({ itemTypes, onMobileMenuClick }: TopBarProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
       <div className="flex items-center gap-3">
@@ -39,10 +42,7 @@ export function TopBar({ onMobileMenuClick }: TopBarProps) {
           <Plus className="h-3.5 w-3.5" />
           New collection
         </Button>
-        <Button size="sm" className="gap-1.5 h-8 text-xs">
-          <Plus className="h-3.5 w-3.5" />
-          New item
-        </Button>
+        <CreateItemDialog itemTypes={itemTypes} />
       </div>
     </header>
   );

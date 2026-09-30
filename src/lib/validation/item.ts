@@ -11,7 +11,11 @@ const optionalText = z
   .nullable()
   .default(null)
 
-export const updateItemSchema = z.object({
+/**
+ * The editable fields every item shares. Create and update take the same set —
+ * create additionally names the type it belongs to.
+ */
+const itemFields = {
   title: z.string().trim().min(1, "Title is required").max(200, "Title is too long"),
   description: optionalText,
   content: optionalText,
@@ -24,10 +28,70 @@ export const updateItemSchema = z.object({
     .array(z.string().trim().min(1, "Tags cannot be empty"))
     .max(20, "An item can have at most 20 tags")
     .default([]),
-})
+}
+
+export const updateItemSchema = z.object(itemFields)
 
 export type UpdateItemInput = z.input<typeof updateItemSchema>
 export type UpdateItemData = z.output<typeof updateItemSchema>
+
+export const createItemSchema = z.object({
+  typeId: z.string().trim().min(1, "Select an item type"),
+  ...itemFields,
+})
+
+export type CreateItemInput = z.input<typeof createItemSchema>
+export type CreateItemData = z.output<typeof createItemSchema>
+
+/** Types whose `language` column is meaningful. */
+export const LANGUAGE_SLUGS = new Set(["snippets", "commands"])
+
+export interface ItemTypeShape {
+  slug: string
+  category: string
+}
+
+export interface ContentFields {
+  content: string | null
+  url: string | null
+  language: string | null
+}
+
+export type ContentFieldsResult =
+  | { ok: true; fields: ContentFields }
+  | { ok: false; error: string }
+
+/**
+ * Decide which content fields an item type actually accepts, and reject input
+ * the type cannot satisfy.
+ *
+ * The type is resolved from the database, never taken from the request, so this
+ * is the server's own answer to "what may this item hold" — fields the type
+ * does not use are dropped rather than trusted from the client, which only
+ * hides them as a convenience.
+ */
+export function contentFieldsForType(
+  type: ItemTypeShape,
+  data: Pick<CreateItemData, "content" | "url" | "language">
+): ContentFieldsResult {
+  if (type.category === "FILE") {
+    return { ok: false, error: "File and image items are not supported yet." }
+  }
+
+  const isUrl = type.category === "URL"
+  if (isUrl && data.url === null) {
+    return { ok: false, error: "A URL is required for this item type." }
+  }
+
+  return {
+    ok: true,
+    fields: {
+      content: isUrl ? null : data.content,
+      url: isUrl ? data.url : null,
+      language: LANGUAGE_SLUGS.has(type.slug) ? data.language : null,
+    },
+  }
+}
 
 /**
  * Splits the drawer's comma-separated tag input into a deduplicated list.
