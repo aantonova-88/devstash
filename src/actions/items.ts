@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache"
 import { auth } from "@/auth"
-import { updateItem as updateItemQuery } from "@/lib/db/items"
+import {
+  deleteItem as deleteItemQuery,
+  updateItem as updateItemQuery,
+} from "@/lib/db/items"
 import { updateItemSchema, type UpdateItemInput } from "@/lib/validation/item"
-import type { ItemDetail } from "@/lib/db/items"
+import type { DeletedItem, ItemDetail } from "@/lib/db/items"
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -45,5 +48,36 @@ export async function updateItem(
   } catch (err) {
     console.error("updateItem failed", err)
     return { success: false, error: "Could not save this item." }
+  }
+}
+
+/**
+ * Permanently delete one item.
+ *
+ * Ownership is enforced inside the query, so a foreign item id returns the same
+ * "not found" as an unknown one. The deleted row's type slug comes back with it
+ * so the type listing can be revalidated without a second lookup.
+ */
+export async function deleteItem(
+  itemId: string
+): Promise<ActionResult<DeletedItem>> {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    const item = await deleteItemQuery(session.user.id, itemId)
+    if (!item) {
+      return { success: false, error: "Item not found" }
+    }
+
+    revalidatePath("/dashboard")
+    revalidatePath(`/items/${item.typeSlug}`)
+
+    return { success: true, data: item }
+  } catch (err) {
+    console.error("deleteItem failed", err)
+    return { success: false, error: "Could not delete this item." }
   }
 }

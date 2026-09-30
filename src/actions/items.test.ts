@@ -2,13 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const auth = vi.fn()
 const updateItemQuery = vi.fn()
+const deleteItemQuery = vi.fn()
 const revalidatePath = vi.fn()
 
 vi.mock("@/auth", () => ({ auth }))
-vi.mock("@/lib/db/items", () => ({ updateItem: updateItemQuery }))
+vi.mock("@/lib/db/items", () => ({
+  updateItem: updateItemQuery,
+  deleteItem: deleteItemQuery,
+}))
 vi.mock("next/cache", () => ({ revalidatePath }))
 
-const { updateItem } = await import("@/actions/items")
+const { updateItem, deleteItem } = await import("@/actions/items")
 
 const INPUT = {
   title: "Renamed hook",
@@ -141,6 +145,106 @@ describe("updateItem", () => {
       await updateItem("item_1", INPUT)
 
       expect(logged).toHaveBeenCalledWith("updateItem failed", err)
+    })
+  })
+})
+
+describe("deleteItem", () => {
+  const DELETED = { id: "item_1", title: "useDebounce hook", typeSlug: "snippets" }
+
+  beforeEach(() => {
+    deleteItemQuery.mockReset()
+    deleteItemQuery.mockResolvedValue(DELETED)
+  })
+
+  it("returns the deleted item on success", async () => {
+    const result = await deleteItem("item_1")
+
+    expect(result).toEqual({ success: true, data: DELETED })
+  })
+
+  it("passes the session user id to the query rather than trusting the client", async () => {
+    await deleteItem("item_1")
+
+    expect(deleteItemQuery).toHaveBeenCalledWith("user_1", "item_1")
+  })
+
+  it("revalidates the dashboard and the deleted item's type page", async () => {
+    await deleteItem("item_1")
+
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard")
+    expect(revalidatePath).toHaveBeenCalledWith("/items/snippets")
+  })
+
+  it("revalidates the slug the query reports, not one derived elsewhere", async () => {
+    deleteItemQuery.mockResolvedValue({ ...DELETED, typeSlug: "links" })
+
+    await deleteItem("item_1")
+
+    expect(revalidatePath).toHaveBeenCalledWith("/items/links")
+  })
+
+  describe("authentication", () => {
+    it.each([
+      ["no session", null],
+      ["a session without a user", {}],
+      ["a session user without an id", { user: {} }],
+    ])("rejects %s without touching the database", async (_label, session) => {
+      auth.mockResolvedValue(session)
+
+      const result = await deleteItem("item_1")
+
+      expect(result).toEqual({ success: false, error: "Not authenticated" })
+      expect(deleteItemQuery).not.toHaveBeenCalled()
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("ownership", () => {
+    it("reports a missing item when the query finds no matching row", async () => {
+      deleteItemQuery.mockResolvedValue(null)
+
+      const result = await deleteItem("item_1")
+
+      expect(result).toEqual({ success: false, error: "Item not found" })
+    })
+
+    it("does not revalidate when the item was not found", async () => {
+      deleteItemQuery.mockResolvedValue(null)
+
+      await deleteItem("item_1")
+
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("failures", () => {
+    it("returns a generic message instead of leaking the database error", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {})
+      deleteItemQuery.mockRejectedValue(new Error("connection string leaked"))
+
+      const result = await deleteItem("item_1")
+
+      expect(result).toEqual({ success: false, error: "Could not delete this item." })
+    })
+
+    it("logs the underlying error for the server operator", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+      const err = new Error("connection lost")
+      deleteItemQuery.mockRejectedValue(err)
+
+      await deleteItem("item_1")
+
+      expect(logged).toHaveBeenCalledWith("deleteItem failed", err)
+    })
+
+    it("does not revalidate when the delete throws", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {})
+      deleteItemQuery.mockRejectedValue(new Error("connection lost"))
+
+      await deleteItem("item_1")
+
+      expect(revalidatePath).not.toHaveBeenCalled()
     })
   })
 })

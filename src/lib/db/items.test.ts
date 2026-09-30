@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const findFirst = vi.fn()
 const update = vi.fn()
+const deleteFn = vi.fn()
 
 // items.ts imports the Prisma client at module scope; mocking it keeps the
 // suite hermetic and offline.
-vi.mock("@/lib/prisma", () => ({ prisma: { item: { findFirst, update } } }))
+vi.mock("@/lib/prisma", () => ({
+  prisma: { item: { findFirst, update, delete: deleteFn } },
+}))
 
-const { getItemById, updateItem } = await import("@/lib/db/items")
+const { getItemById, updateItem, deleteItem } = await import("@/lib/db/items")
 
 const TYPE = {
   id: "type_1",
@@ -49,6 +52,7 @@ function itemRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   findFirst.mockReset()
   update.mockReset()
+  deleteFn.mockReset()
 })
 
 const FIELDS = {
@@ -213,5 +217,58 @@ describe("updateItem", () => {
     update.mockRejectedValue(Object.assign(new Error("connection lost"), { code: "P1001" }))
 
     await expect(updateItem("user_1", "item_1", FIELDS)).rejects.toThrow("connection lost")
+  })
+})
+
+describe("deleteItem", () => {
+  const DELETED_ROW = {
+    id: "item_1",
+    title: "useDebounce hook",
+    type: { slug: "snippets" },
+  }
+
+  it("scopes the delete by user id so a foreign item can't be removed", async () => {
+    deleteFn.mockResolvedValue(DELETED_ROW)
+
+    await deleteItem("user_1", "item_1")
+
+    expect(deleteFn).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item_1", userId: "user_1" } })
+    )
+  })
+
+  it("returns the deleted item's id, title and type slug", async () => {
+    deleteFn.mockResolvedValue(DELETED_ROW)
+
+    const result = await deleteItem("user_1", "item_1")
+
+    expect(result).toEqual({
+      id: "item_1",
+      title: "useDebounce hook",
+      typeSlug: "snippets",
+    })
+  })
+
+  it("deletes in one statement instead of looking the item up first", async () => {
+    deleteFn.mockResolvedValue(DELETED_ROW)
+
+    await deleteItem("user_1", "item_1")
+
+    // The type slug comes back from the delete itself so the caller can
+    // revalidate without a second round trip.
+    expect(findFirst).not.toHaveBeenCalled()
+    expect(deleteFn).toHaveBeenCalledTimes(1)
+  })
+
+  it("returns null when no row matches (missing or another user's item)", async () => {
+    deleteFn.mockRejectedValue(Object.assign(new Error("not found"), { code: "P2025" }))
+
+    await expect(deleteItem("user_1", "item_1")).resolves.toBeNull()
+  })
+
+  it("rethrows any other database error", async () => {
+    deleteFn.mockRejectedValue(Object.assign(new Error("connection lost"), { code: "P1001" }))
+
+    await expect(deleteItem("user_1", "item_1")).rejects.toThrow("connection lost")
   })
 })

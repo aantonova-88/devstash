@@ -350,3 +350,35 @@ export async function updateItem(
     throw err
   }
 }
+
+export interface DeletedItem {
+  id: string
+  title: string
+  typeSlug: string
+}
+
+/**
+ * Permanently delete one item.
+ *
+ * Ownership works exactly as in `updateItem`: `userId` sits in the `where`
+ * clause, so another user's id raises P2025 and is indistinguishable from an
+ * unknown one. The `ItemTag` and `ItemCollection` join rows cascade. The
+ * deleted row's type slug is returned so the caller can revalidate
+ * `/items/<slug>` without a second query.
+ */
+export async function deleteItem(
+  userId: string,
+  itemId: string
+): Promise<DeletedItem | null> {
+  try {
+    const item = await prisma.item.delete({
+      where: { id: itemId, userId },
+      select: { id: true, title: true, type: { select: { slug: true } } },
+    })
+
+    return { id: item.id, title: item.title, typeSlug: item.type.slug }
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2025") return null
+    throw err
+  }
+}
