@@ -20,6 +20,8 @@ import type { SidebarItemType } from "@/lib/db/items"
 interface CreateItemFormProps {
   /** Selectable types, already filtered to those this form can create. */
   types: SidebarItemType[]
+  /** Type to start on — the one whose page opened the dialog. */
+  initialTypeId?: string
   onCancel: () => void
   onCreated: () => void
 }
@@ -29,12 +31,22 @@ interface CreateItemFormProps {
  * no form library, matching `ItemEditForm`; the difference is the type selector,
  * which decides which content fields are shown.
  */
-export function CreateItemForm({ types, onCancel, onCreated }: CreateItemFormProps) {
+export function CreateItemForm({
+  types,
+  initialTypeId,
+  onCancel,
+  onCreated,
+}: CreateItemFormProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [typeId, setTypeId] = useState(types[0].id)
+  // `typeId` is submitted as-is, so it must always name one of `types`. An
+  // `initialTypeId` naming a type this form filtered out (a FILE type, say)
+  // would otherwise be sent to the server and rejected, so fall back instead.
+  const [typeId, setTypeId] = useState(
+    () => types.find((t) => t.id === initialTypeId)?.id ?? types[0].id,
+  )
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")

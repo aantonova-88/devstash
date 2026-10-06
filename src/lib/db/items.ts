@@ -81,7 +81,14 @@ export async function getRecentItems(userId: string, limit = 10): Promise<ItemWi
   return items.map(serializeItem)
 }
 
-export async function getSystemItemTypes(userId: string): Promise<SidebarItemType[]> {
+/**
+ * `cache()`-wrapped because the shell layout fetches this for the sidebar and
+ * `/items/[type]` needs the same list for its type-specific create button —
+ * both render in one request, so this keeps it to a single pair of queries.
+ */
+export const getSystemItemTypes = cache(async function getSystemItemTypes(
+  userId: string,
+): Promise<SidebarItemType[]> {
   const [types, counts] = await Promise.all([
     prisma.itemType.findMany({
       where: { isSystem: true },
@@ -105,7 +112,7 @@ export async function getSystemItemTypes(userId: string): Promise<SidebarItemTyp
     category: t.category,
     count: countMap.get(t.id) ?? 0,
   }))
-}
+})
 
 export interface ItemTypeSummary {
   id: string
