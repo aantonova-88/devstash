@@ -16,16 +16,28 @@ import type { SidebarItemType } from "@/lib/db/items"
 
 interface CreateItemDialogProps {
   itemTypes: SidebarItemType[]
+  /**
+   * Type to open on. Set by `/items/[type]` so its own button lands on that
+   * type; the chips still let the user switch.
+   */
+  initialTypeId?: string
+  /** Button and dialog title. Defaults to the top bar's generic wording. */
+  label?: string
 }
 
 /**
- * Owns the top bar's "New item" button and the dialog it opens.
+ * Owns a "New item" button and the dialog it opens — the top bar's generic one,
+ * and the type-specific one on each `/items/[type]` page.
  *
  * FILE types are filtered out: uploads are not implemented, so there is no way
  * to give a file or image item its content yet. The form is only mounted while
  * the dialog is open, so each open starts from a clean set of fields.
  */
-export function CreateItemDialog({ itemTypes }: CreateItemDialogProps) {
+export function CreateItemDialog({
+  itemTypes,
+  initialTypeId,
+  label = "New item",
+}: CreateItemDialogProps) {
   const [open, setOpen] = useState(false)
 
   const types = itemTypes.filter((t) => t.category !== "FILE")
@@ -37,12 +49,12 @@ export function CreateItemDialog({ itemTypes }: CreateItemDialogProps) {
         render={<Button size="sm" className="gap-1.5 h-8 text-xs" />}
       >
         <Plus className="h-3.5 w-3.5" />
-        New item
+        {label}
       </DialogTrigger>
 
       <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New item</DialogTitle>
+          <DialogTitle>{label}</DialogTitle>
           <DialogDescription>
             Pick a type, then fill in the fields it uses.
           </DialogDescription>
@@ -50,6 +62,7 @@ export function CreateItemDialog({ itemTypes }: CreateItemDialogProps) {
 
         <CreateItemForm
           types={types}
+          initialTypeId={initialTypeId}
           onCancel={() => setOpen(false)}
           onCreated={() => setOpen(false)}
         />

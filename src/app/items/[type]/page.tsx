@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation"
 import { File } from "lucide-react"
 import { auth } from "@/auth"
-import { getItemTypeBySlug, getItemsByType } from "@/lib/db/items"
+import { getItemTypeBySlug, getItemsByType, getSystemItemTypes } from "@/lib/db/items"
 import { ICON_MAP } from "@/lib/icons"
+import { CreateItemDialog } from "@/components/items/CreateItemDialog"
 import { ItemGrid } from "@/components/items/ItemGrid"
 
 export default async function ItemsByTypePage({
@@ -17,7 +18,12 @@ export default async function ItemsByTypePage({
   const type = await getItemTypeBySlug(slug)
   if (!type) notFound()
 
-  const items = await getItemsByType(session.user.id, type.id)
+  // `getSystemItemTypes` is cache()-wrapped and the shell layout already called
+  // it this request, so the create dialog's type list costs no extra queries.
+  const [items, itemTypes] = await Promise.all([
+    getItemsByType(session.user.id, type.id),
+    getSystemItemTypes(session.user.id),
+  ])
   const Icon = ICON_MAP[type.icon] ?? File
 
   return (
@@ -36,6 +42,18 @@ export default async function ItemsByTypePage({
             {items.length} {items.length === 1 ? "item" : "items"}
           </p>
         </div>
+
+        {/* FILE types have no create path until uploads land, which is why the
+            dialog filters them out — so this page must not offer the button. */}
+        {type.category !== "FILE" && (
+          <div className="ml-auto">
+            <CreateItemDialog
+              itemTypes={itemTypes}
+              initialTypeId={type.id}
+              label={`New ${type.name.toLowerCase()}`}
+            />
+          </div>
+        )}
       </div>
 
       {/* Items */}

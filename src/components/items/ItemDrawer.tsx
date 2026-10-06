@@ -19,10 +19,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { CodeEditor } from "@/components/items/CodeEditor"
 import { DeleteItemDialog } from "@/components/items/DeleteItemDialog"
 import { ItemEditForm } from "@/components/items/ItemEditForm"
 import { ICON_MAP } from "@/lib/icons"
+import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn, formatDate, formatFileSize, relativeTime } from "@/lib/utils"
+import { LANGUAGE_SLUGS } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
 interface ItemDrawerProps {
@@ -223,10 +226,25 @@ function ItemDrawerView({
 }
 
 /**
- * Renders whichever content field the item's category populates. Rich editing
- * and syntax highlighting land with the editor slice.
+ * Renders whichever content field the item's category populates. Code types get
+ * the syntax-highlighted `CodeEditor`; the other text types keep the plain
+ * line-numbered block below.
  */
 function ItemContent({ item, onCopy }: { item: ItemDetail; onCopy: () => void }) {
+  if (item.content && LANGUAGE_SLUGS.has(item.type.slug)) {
+    return (
+      <section className="space-y-2">
+        <SectionLabel>Content</SectionLabel>
+        <CodeEditor
+          value={item.content}
+          language={item.language}
+          fallbackLanguage={fallbackLanguageForSlug(item.type.slug)}
+          ariaLabel={`${item.title} content`}
+        />
+      </section>
+    )
+  }
+
   if (item.content) {
     const lines = item.content.split("\n")
 

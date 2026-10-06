@@ -4,14 +4,16 @@ const findFirst = vi.fn()
 const update = vi.fn()
 const deleteFn = vi.fn()
 const create = vi.fn()
+const groupBy = vi.fn()
 const itemTypeFindFirst = vi.fn()
+const itemTypeFindMany = vi.fn()
 
 // items.ts imports the Prisma client at module scope; mocking it keeps the
 // suite hermetic and offline.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    item: { findFirst, update, delete: deleteFn, create },
-    itemType: { findFirst: itemTypeFindFirst },
+    item: { findFirst, update, delete: deleteFn, create, groupBy },
+    itemType: { findFirst: itemTypeFindFirst, findMany: itemTypeFindMany },
   },
 }))
 
@@ -21,6 +23,7 @@ const {
   deleteItem,
   createItem,
   getSystemItemTypeById,
+  getSystemItemTypes,
 } = await import("@/lib/db/items")
 
 const TYPE = {
@@ -65,7 +68,9 @@ beforeEach(() => {
   update.mockReset()
   deleteFn.mockReset()
   create.mockReset()
+  groupBy.mockReset()
   itemTypeFindFirst.mockReset()
+  itemTypeFindMany.mockReset()
 })
 
 const FIELDS = {
@@ -372,5 +377,119 @@ describe("createItem", () => {
     create.mockRejectedValue(Object.assign(new Error("fk violation"), { code: "P2025" }))
 
     await expect(createItem("user_1", CREATE_FIELDS)).rejects.toThrow("fk violation")
+  })
+})
+
+describe("getSystemItemTypes", () => {
+  const TYPE_ROWS = [
+    { id: "t_snip", name: "Snippet", slug: "snippets", icon: "Code", color: "#3b82f6", category: "TEXT", order: 0 },
+    { id: "t_note", name: "Note", slug: "notes", icon: "StickyNote", color: "#fde047", category: "TEXT", order: 3 },
+    { id: "t_file", name: "File", slug: "files", icon: "File", color: "#6b7280", category: "FILE", order: 4 },
+  ]
+
+  // `getSystemItemTypes` is cache()-wrapped, and React's cache memoizes per
+  // argument. Each test uses its own user id so a result can never leak from
+  // one test into the next, whatever the memoization does outside a render.
+  let userSeq = 0
+  function nextUser() {
+    userSeq += 1
+    return `user_types_${userSeq}`
+  }
+
+  beforeEach(() => {
+    itemTypeFindMany.mockResolvedValue(TYPE_ROWS)
+    groupBy.mockResolvedValue([])
+  })
+
+  it("returns only system types, in their configured order", async () => {
+    const userId = nextUser()
+
+    await getSystemItemTypes(userId)
+
+    // Custom types belong to one user; the sidebar and the create dialog's
+    // chips must never show another user's, so the filter is not optional.
+    expect(itemTypeFindMany).toHaveBeenCalledWith({
+      where: { isSystem: true },
+      orderBy: { order: "asc" },
+    })
+  })
+
+  it("counts only the given user's items", async () => {
+    const userId = nextUser()
+
+    await getSystemItemTypes(userId)
+
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ["typeId"],
+      where: { userId },
+      _count: true,
+    })
+  })
+
+  it("maps each type's count from the grouped totals", async () => {
+    const userId = nextUser()
+    groupBy.mockResolvedValue([
+      { typeId: "t_snip", _count: 7 },
+      { typeId: "t_note", _count: 2 },
+    ])
+
+    const result = await getSystemItemTypes(userId)
+
+    expect(result.map((t) => [t.slug, t.count])).toEqual([
+      ["snippets", 7],
+      ["notes", 2],
+      ["files", 0],
+    ])
+  })
+
+  it("reports zero rather than undefined for a type with no items", async () => {
+    const userId = nextUser()
+    groupBy.mockResolvedValue([])
+
+    const result = await getSystemItemTypes(userId)
+
+    expect(result.every((t) => t.count === 0)).toBe(true)
+    expect(result.some((t) => t.count === undefined)).toBe(false)
+  })
+
+  it("ignores counts for types that are not in the system list", async () => {
+    const userId = nextUser()
+    groupBy.mockResolvedValue([
+      { typeId: "t_snip", _count: 3 },
+      { typeId: "t_deleted", _count: 99 },
+    ])
+
+    const result = await getSystemItemTypes(userId)
+
+    expect(result).toHaveLength(TYPE_ROWS.length)
+    expect(result.find((t) => t.slug === "snippets")?.count).toBe(3)
+  })
+
+  it("returns the fields the sidebar and the create dialog's chips read", async () => {
+    const userId = nextUser()
+
+    const [first] = await getSystemItemTypes(userId)
+
+    // `category` is what CreateItemDialog filters FILE types on, and `id` is
+    // what /items/[type] passes as the preselected type.
+    expect(first).toEqual({
+      id: "t_snip",
+      name: "Snippet",
+      slug: "snippets",
+      icon: "Code",
+      color: "#3b82f6",
+      category: "TEXT",
+      count: 0,
+    })
+  })
+
+  it("exposes every FILE type so the dialog has something to filter out", async () => {
+    const userId = nextUser()
+
+    const result = await getSystemItemTypes(userId)
+
+    // The query must not pre-filter FILE types: the sidebar still lists them
+    // (with a PRO badge) and only the create dialog drops them.
+    expect(result.some((t) => t.category === "FILE")).toBe(true)
   })
 })

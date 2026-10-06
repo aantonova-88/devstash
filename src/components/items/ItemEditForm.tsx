@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { updateItem } from "@/actions/items"
+import { CodeEditor } from "@/components/items/CodeEditor"
 import { Field } from "@/components/items/Field"
+import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { LANGUAGE_SLUGS, parseTagInput } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
@@ -37,7 +39,10 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
 
   const showContent = item.type.category === "TEXT"
   const showUrl = item.type.category === "URL"
-  const showLanguage = LANGUAGE_SLUGS.has(item.type.slug)
+  // The types that carry a language are exactly the code-bearing ones
+  // (snippets, commands), so the same set decides who gets the code editor.
+  const isCodeType = LANGUAGE_SLUGS.has(item.type.slug)
+  const showLanguage = isCodeType
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -98,15 +103,28 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
         </Field>
 
         {showContent && (
-          <Field label="Content" htmlFor="item-content">
-            <Textarea
-              id="item-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={pending}
-              rows={10}
-              className="max-h-96 font-mono text-xs leading-relaxed"
-            />
+          <Field label="Content" htmlFor={isCodeType ? undefined : "item-content"}>
+            {isCodeType ? (
+              <CodeEditor
+                ariaLabel="Content"
+                value={content}
+                // Live state, so retyping the language re-highlights immediately.
+                language={language}
+                fallbackLanguage={fallbackLanguageForSlug(item.type.slug)}
+                onChange={setContent}
+                disabled={pending}
+                minHeight={200}
+              />
+            ) : (
+              <Textarea
+                id="item-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                disabled={pending}
+                rows={10}
+                className="max-h-96 font-mono text-xs leading-relaxed"
+              />
+            )}
           </Field>
         )}
 
