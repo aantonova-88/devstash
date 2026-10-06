@@ -53,3 +53,6 @@ next-env.d.ts
 
 # prisma generated client
 /src/generated/
+
+# monaco editor assets, copied from node_modules by scripts/copy-monaco.mjs
+/public/monaco/

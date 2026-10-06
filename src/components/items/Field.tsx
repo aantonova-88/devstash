@@ -2,7 +2,11 @@ import { Label } from "@/components/ui/label"
 
 interface FieldProps {
   label: string
-  htmlFor: string
+  /**
+   * Omitted when the control is not labelable — monaco's input surface is a
+   * `div[role="textbox"]`, which carries its own `aria-label` instead.
+   */
+  htmlFor?: string
   hint?: string
   children: React.ReactNode
 }

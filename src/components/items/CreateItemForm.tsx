@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createItem } from "@/actions/items"
+import { CodeEditor } from "@/components/items/CodeEditor"
 import { Field } from "@/components/items/Field"
 import { ICON_MAP } from "@/lib/icons"
+import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
 import { LANGUAGE_SLUGS, parseTagInput } from "@/lib/validation/item"
 import type { SidebarItemType } from "@/lib/db/items"
@@ -43,7 +45,10 @@ export function CreateItemForm({ types, onCancel, onCreated }: CreateItemFormPro
   const type = types.find((t) => t.id === typeId) ?? types[0]
   const showContent = type.category === "TEXT"
   const showUrl = type.category === "URL"
-  const showLanguage = LANGUAGE_SLUGS.has(type.slug)
+  // The types that carry a language are exactly the code-bearing ones
+  // (snippets, commands), so the same set decides who gets the code editor.
+  const isCodeType = LANGUAGE_SLUGS.has(type.slug)
+  const showLanguage = isCodeType
 
   // Mirrors the server's own requirements so the button reflects them; the
   // action re-checks both against the type it resolves from the database.
@@ -155,15 +160,28 @@ export function CreateItemForm({ types, onCancel, onCreated }: CreateItemFormPro
         </Field>
 
         {showContent && (
-          <Field label="Content" htmlFor="new-item-content">
-            <Textarea
-              id="new-item-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={pending}
-              rows={8}
-              className="max-h-72 font-mono text-xs leading-relaxed"
-            />
+          <Field label="Content" htmlFor={isCodeType ? undefined : "new-item-content"}>
+            {isCodeType ? (
+              <CodeEditor
+                ariaLabel="Content"
+                value={content}
+                // Live state, so retyping the language re-highlights immediately.
+                language={language}
+                fallbackLanguage={fallbackLanguageForSlug(type.slug)}
+                onChange={setContent}
+                disabled={pending}
+                minHeight={180}
+              />
+            ) : (
+              <Textarea
+                id="new-item-content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                disabled={pending}
+                rows={8}
+                className="max-h-72 font-mono text-xs leading-relaxed"
+              />
+            )}
           </Field>
         )}
 
