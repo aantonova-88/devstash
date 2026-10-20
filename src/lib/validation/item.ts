@@ -46,6 +46,21 @@ export type CreateItemData = z.output<typeof createItemSchema>
 /** Types whose `language` column is meaningful. */
 export const LANGUAGE_SLUGS = new Set(["snippets", "commands"])
 
+/** Types whose content is written and rendered as Markdown. */
+export const MARKDOWN_SLUGS = new Set(["notes", "prompts"])
+
+export type ContentEditorKind = "code" | "markdown" | "plain"
+
+/**
+ * Which editor a TEXT type's content gets. Code wins over markdown so a slug
+ * can never land in both; anything in neither set keeps the plain textarea.
+ */
+export function contentEditorFor(slug: string): ContentEditorKind {
+  if (LANGUAGE_SLUGS.has(slug)) return "code"
+  if (MARKDOWN_SLUGS.has(slug)) return "markdown"
+  return "plain"
+}
+
 export interface ItemTypeShape {
   slug: string
   category: string

@@ -1,16 +1,31 @@
-# Current Feature
+# Current Feature: Markdown Editor
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- New `MarkdownEditor` component with a tabbed Write / Preview interface
+- Replaces the `Textarea` for the **notes** and **prompts** content field only; snippets and commands keep `CodeEditor` unchanged
+- Preview renders via `react-markdown` + `remark-gfm` (GitHub Flavored Markdown — tables, task lists, strikethrough, autolinks)
+- Header with a Copy button styled like `CodeEditor`'s (ghost `xs` button + Sonner toast)
+- Readonly mode (drawer view): Preview tab only
+- Edit mode (create dialog + drawer edit form): defaults to Write, Preview available
+- Preview styling via a custom `.markdown-preview` CSS class: distinct h1–h6 sizing/weight, dark code blocks with monospace font, subtle inline-code background, indented ordered/unordered lists, blockquotes with left border accent, blue links with hover state, bordered tables with header background
+- Fluid height capped at 400px, matching `CodeEditor`
+- Integrated in three places: create dialog content field, drawer edit-mode content field, drawer view-mode content (readonly)
 
 ## Notes
 
-None
+- Spec: `context/features/markdown-editor-spec.md`
+- **Spec names `NewItemDialog`** — no such component; the create flow is `CreateItemDialog` → `CreateItemForm` (`src/components/items/`).
+- **Spec's hard-coded colors (`bg-[#1e1e1e]` container, `bg-[#2d2d2d]` header) don't match the current `CodeEditor`**, which uses `rounded-lg border border-border bg-muted/40` with a `border-b border-border` header and theme tokens. Recommend matching `CodeEditor`'s actual tokens so the two editors look identical side by side — confirm at `start`.
+- The `.markdown-preview` class goes in `src/app/globals.css` (Tailwind v4, no config file). `@tailwindcss/typography` is not installed and the spec asks for a custom class, so no new plugin.
+- Which types get the markdown editor should be decided by slug alongside `LANGUAGE_SLUGS` in `src/lib/validation/item.ts` (e.g. a `MARKDOWN_SLUGS` = `notes`, `prompts`), not re-listed in each component.
+- New deps: `react-markdown`, `remark-gfm`. react-markdown does not render raw HTML by default — keep it that way (no `rehype-raw`), since content is user-supplied.
+- Field labelling: monaco needed `ariaLabel` because `Label htmlFor` couldn't target it; the Write tab's `<textarea>` can take the field `id` again, so `Field htmlFor` should work normally.
+- Tests: the slug helper (if added) is testable in `src/lib`; the component itself is excluded by the testing policy.
 
 ## History
 
