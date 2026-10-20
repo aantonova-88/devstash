@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { updateItem } from "@/actions/items"
 import { CodeEditor } from "@/components/items/CodeEditor"
+import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { Field } from "@/components/items/Field"
 import { fallbackLanguageForSlug } from "@/lib/monaco"
-import { LANGUAGE_SLUGS, parseTagInput } from "@/lib/validation/item"
+import { contentEditorFor, parseTagInput } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
 interface ItemEditFormProps {
@@ -41,7 +42,8 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
   const showUrl = item.type.category === "URL"
   // The types that carry a language are exactly the code-bearing ones
   // (snippets, commands), so the same set decides who gets the code editor.
-  const isCodeType = LANGUAGE_SLUGS.has(item.type.slug)
+  const editor = contentEditorFor(item.type.slug)
+  const isCodeType = editor === "code"
   const showLanguage = isCodeType
 
   function handleSubmit(event: React.FormEvent) {
@@ -111,6 +113,14 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
                 // Live state, so retyping the language re-highlights immediately.
                 language={language}
                 fallbackLanguage={fallbackLanguageForSlug(item.type.slug)}
+                onChange={setContent}
+                disabled={pending}
+                minHeight={200}
+              />
+            ) : editor === "markdown" ? (
+              <MarkdownEditor
+                id="item-content"
+                value={content}
                 onChange={setContent}
                 disabled={pending}
                 minHeight={200}

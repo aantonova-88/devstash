@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { createItem } from "@/actions/items"
 import { CodeEditor } from "@/components/items/CodeEditor"
+import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { Field } from "@/components/items/Field"
 import { ICON_MAP } from "@/lib/icons"
 import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
-import { LANGUAGE_SLUGS, parseTagInput } from "@/lib/validation/item"
+import { contentEditorFor, parseTagInput } from "@/lib/validation/item"
 import type { SidebarItemType } from "@/lib/db/items"
 
 interface CreateItemFormProps {
@@ -59,7 +60,8 @@ export function CreateItemForm({
   const showUrl = type.category === "URL"
   // The types that carry a language are exactly the code-bearing ones
   // (snippets, commands), so the same set decides who gets the code editor.
-  const isCodeType = LANGUAGE_SLUGS.has(type.slug)
+  const editor = contentEditorFor(type.slug)
+  const isCodeType = editor === "code"
   const showLanguage = isCodeType
 
   // Mirrors the server's own requirements so the button reflects them; the
@@ -180,6 +182,14 @@ export function CreateItemForm({
                 // Live state, so retyping the language re-highlights immediately.
                 language={language}
                 fallbackLanguage={fallbackLanguageForSlug(type.slug)}
+                onChange={setContent}
+                disabled={pending}
+                minHeight={180}
+              />
+            ) : editor === "markdown" ? (
+              <MarkdownEditor
+                id="new-item-content"
+                value={content}
                 onChange={setContent}
                 disabled={pending}
                 minHeight={180}

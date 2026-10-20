@@ -3,7 +3,10 @@ import {
   updateItemSchema,
   createItemSchema,
   contentFieldsForType,
+  contentEditorFor,
   parseTagInput,
+  LANGUAGE_SLUGS,
+  MARKDOWN_SLUGS,
 } from "@/lib/validation/item"
 
 const VALID = {
@@ -295,5 +298,33 @@ describe("contentFieldsForType", () => {
       ok: false,
       error: "File and image items are not supported yet.",
     })
+  })
+})
+
+describe("contentEditorFor", () => {
+  it("gives snippets and commands the code editor", () => {
+    expect(contentEditorFor("snippets")).toBe("code")
+    expect(contentEditorFor("commands")).toBe("code")
+  })
+
+  it("gives notes and prompts the markdown editor", () => {
+    expect(contentEditorFor("notes")).toBe("markdown")
+    expect(contentEditorFor("prompts")).toBe("markdown")
+  })
+
+  it("falls back to the plain textarea for any other slug", () => {
+    expect(contentEditorFor("links")).toBe("plain")
+    expect(contentEditorFor("my-custom-type")).toBe("plain")
+    expect(contentEditorFor("")).toBe("plain")
+  })
+
+  it("matches slugs exactly, without case folding", () => {
+    expect(contentEditorFor("Notes")).toBe("plain")
+    expect(contentEditorFor("note")).toBe("plain")
+  })
+
+  it("never lets a slug sit in both the code and markdown sets", () => {
+    const overlap = [...MARKDOWN_SLUGS].filter((slug) => LANGUAGE_SLUGS.has(slug))
+    expect(overlap).toEqual([])
   })
 })

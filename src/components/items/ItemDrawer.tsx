@@ -20,12 +20,13 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { CodeEditor } from "@/components/items/CodeEditor"
+import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { DeleteItemDialog } from "@/components/items/DeleteItemDialog"
 import { ItemEditForm } from "@/components/items/ItemEditForm"
 import { ICON_MAP } from "@/lib/icons"
 import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn, formatDate, formatFileSize, relativeTime } from "@/lib/utils"
-import { LANGUAGE_SLUGS } from "@/lib/validation/item"
+import { contentEditorFor } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
 interface ItemDrawerProps {
@@ -227,11 +228,13 @@ function ItemDrawerView({
 
 /**
  * Renders whichever content field the item's category populates. Code types get
- * the syntax-highlighted `CodeEditor`; the other text types keep the plain
- * line-numbered block below.
+ * the syntax-highlighted `CodeEditor`, notes and prompts the rendered
+ * `MarkdownEditor`; any other text type keeps the plain line-numbered block.
  */
 function ItemContent({ item, onCopy }: { item: ItemDetail; onCopy: () => void }) {
-  if (item.content && LANGUAGE_SLUGS.has(item.type.slug)) {
+  const editor = contentEditorFor(item.type.slug)
+
+  if (item.content && editor === "code") {
     return (
       <section className="space-y-2">
         <SectionLabel>Content</SectionLabel>
@@ -241,6 +244,15 @@ function ItemContent({ item, onCopy }: { item: ItemDetail; onCopy: () => void })
           fallbackLanguage={fallbackLanguageForSlug(item.type.slug)}
           ariaLabel={`${item.title} content`}
         />
+      </section>
+    )
+  }
+
+  if (item.content && editor === "markdown") {
+    return (
+      <section className="space-y-2">
+        <SectionLabel>Content</SectionLabel>
+        <MarkdownEditor value={item.content} ariaLabel={`${item.title} content`} />
       </section>
     )
   }
