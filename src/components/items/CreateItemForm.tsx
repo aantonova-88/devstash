@@ -12,14 +12,16 @@ import { createItem } from "@/actions/items"
 import { CodeEditor } from "@/components/items/CodeEditor"
 import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { Field } from "@/components/items/Field"
+import { FileUpload, type UploadedFile } from "@/components/items/FileUpload"
 import { ICON_MAP } from "@/lib/icons"
 import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
+import { isFileTypeSlug } from "@/lib/validation/file"
 import { contentEditorFor, parseTagInput } from "@/lib/validation/item"
 import type { SidebarItemType } from "@/lib/db/items"
 
 interface CreateItemFormProps {
-  /** Selectable types, already filtered to those this form can create. */
+  /** Selectable types, shown as chips. */
   types: SidebarItemType[]
   /** Type to start on — the one whose page opened the dialog. */
   initialTypeId?: string
@@ -43,8 +45,8 @@ export function CreateItemForm({
   const [error, setError] = useState<string | null>(null)
 
   // `typeId` is submitted as-is, so it must always name one of `types`. An
-  // `initialTypeId` naming a type this form filtered out (a FILE type, say)
-  // would otherwise be sent to the server and rejected, so fall back instead.
+  // `initialTypeId` naming a type not in the list would otherwise be sent to
+  // the server and rejected, so fall back instead.
   const [typeId, setTypeId] = useState(
     () => types.find((t) => t.id === initialTypeId)?.id ?? types[0].id,
   )
@@ -54,10 +56,17 @@ export function CreateItemForm({
   const [language, setLanguage] = useState("")
   const [url, setUrl] = useState("")
   const [tags, setTags] = useState("")
+  // Remembered with the slug it was uploaded for: an image's key is rejected for
+  // a File item, so switching chips must drop it rather than submit it.
+  const [upload, setUpload] = useState<{ slug: string; file: UploadedFile } | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const type = types.find((t) => t.id === typeId) ?? types[0]
   const showContent = type.category === "TEXT"
   const showUrl = type.category === "URL"
+  const fileSlug =
+    type.category === "FILE" && isFileTypeSlug(type.slug) ? type.slug : null
+  const uploadedFile = upload?.slug === type.slug ? upload.file : null
   // The types that carry a language are exactly the code-bearing ones
   // (snippets, commands), so the same set decides who gets the code editor.
   const editor = contentEditorFor(type.slug)
@@ -66,7 +75,10 @@ export function CreateItemForm({
 
   // Mirrors the server's own requirements so the button reflects them; the
   // action re-checks both against the type it resolves from the database.
-  const incomplete = title.trim() === "" || (showUrl && url.trim() === "")
+  const incomplete =
+    title.trim() === "" ||
+    (showUrl && url.trim() === "") ||
+    (fileSlug !== null && uploadedFile === null)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -80,6 +92,7 @@ export function CreateItemForm({
         content: showContent ? content : null,
         language: showLanguage ? language : null,
         url: showUrl ? url : null,
+        fileKey: fileSlug ? (uploadedFile?.key ?? null) : null,
         tags: parseTagInput(tags),
       })
 
@@ -127,7 +140,7 @@ export function CreateItemForm({
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  disabled={pending}
+                  disabled={pending || uploading}
                   onClick={() => setTypeId(t.id)}
                   className={cn(
                     "flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors",
@@ -207,6 +220,19 @@ export function CreateItemForm({
           </Field>
         )}
 
+        {fileSlug && (
+          <Field label={fileSlug === "images" ? "Image" : "File"}>
+            <FileUpload
+              key={fileSlug}
+              slug={fileSlug}
+              value={uploadedFile}
+              onChange={(file) => setUpload(file ? { slug: fileSlug, file } : null)}
+              onUploadingChange={setUploading}
+              disabled={pending}
+            />
+          </Field>
+        )}
+
         {showLanguage && (
           <Field label="Language" htmlFor="new-item-language">
             <Input
@@ -263,7 +289,7 @@ export function CreateItemForm({
         >
           Cancel
         </Button>
-        <Button type="submit" className="flex-1" disabled={pending || incomplete}>
+        <Button type="submit" className="flex-1" disabled={pending || uploading || incomplete}>
           {pending && <Loader2 className="animate-spin" />}
           {pending ? "Creating…" : "Create item"}
         </Button>

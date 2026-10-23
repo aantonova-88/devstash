@@ -306,6 +306,15 @@ type ItemDetailRow = Awaited<
   ReturnType<typeof prisma.item.findFirstOrThrow<{ include: typeof itemDetailInclude }>>
 >
 
+/**
+ * Same-origin URL that streams an item's file. The `fileUrl` column holds the
+ * private R2 key, which is never sent to the client: every read goes through
+ * this ownership-checked proxy instead.
+ */
+export function itemFileUrl(itemId: string): string {
+  return `/api/items/${itemId}/file`
+}
+
 function serializeItemDetail(item: ItemDetailRow): ItemDetail {
   return {
     id: item.id,
@@ -313,7 +322,7 @@ function serializeItemDetail(item: ItemDetailRow): ItemDetail {
     description: item.description,
     content: item.content,
     url: item.url,
-    fileUrl: item.fileUrl,
+    fileUrl: item.fileUrl ? itemFileUrl(item.id) : null,
     fileName: item.fileName,
     fileSize: item.fileSize,
     language: item.language,
@@ -383,6 +392,8 @@ export interface DeletedItem {
   id: string
   title: string
   typeSlug: string
+  /** R2 key of the item's file, so the caller can remove the object too. */
+  fileKey: string | null
 }
 
 /**
@@ -392,7 +403,7 @@ export interface DeletedItem {
  * clause, so another user's id raises P2025 and is indistinguishable from an
  * unknown one. The `ItemTag` and `ItemCollection` join rows cascade. The
  * deleted row's type slug is returned so the caller can revalidate
- * `/items/<slug>` without a second query.
+ * `/items/<slug>` without a second query, along with the file's R2 key.
  */
 export async function deleteItem(
   userId: string,
@@ -401,10 +412,20 @@ export async function deleteItem(
   try {
     const item = await prisma.item.delete({
       where: { id: itemId, userId },
-      select: { id: true, title: true, type: { select: { slug: true } } },
+      select: {
+        id: true,
+        title: true,
+        fileUrl: true,
+        type: { select: { slug: true } },
+      },
     })
 
-    return { id: item.id, title: item.title, typeSlug: item.type.slug }
+    return {
+      id: item.id,
+      title: item.title,
+      typeSlug: item.type.slug,
+      fileKey: item.fileUrl,
+    }
   } catch (err) {
     if ((err as { code?: string }).code === "P2025") return null
     throw err
@@ -418,6 +439,10 @@ export interface CreateItemFields {
   content: string | null
   language: string | null
   url: string | null
+  /** R2 key; null for every non-FILE type. */
+  fileUrl: string | null
+  fileName: string | null
+  fileSize: number | null
   tags: string[]
 }
 
@@ -451,4 +476,28 @@ export async function createItem(
   })
 
   return serializeItemDetail(item)
+}
+
+export interface ItemFile {
+  key: string
+  fileName: string | null
+}
+
+/**
+ * The R2 key and name behind one item's file, for the download proxy. Scoped by
+ * `userId` like `getItemById`, so a foreign item and an item with no file both
+ * return null.
+ */
+export async function getItemFile(
+  userId: string,
+  itemId: string
+): Promise<ItemFile | null> {
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, userId },
+    select: { fileUrl: true, fileName: true },
+  })
+
+  if (!item?.fileUrl) return null
+
+  return { key: item.fileUrl, fileName: item.fileName }
 }

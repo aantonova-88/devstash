@@ -24,6 +24,7 @@ const {
   createItem,
   getSystemItemTypeById,
   getSystemItemTypes,
+  getItemFile,
 } = await import("@/lib/db/items")
 
 const TYPE = {
@@ -157,6 +158,27 @@ describe("getItemById", () => {
     expect(item?.url).toBe("https://example.com")
     expect(item?.language).toBeNull()
   })
+
+  it("exposes a file as its proxy URL, never the private R2 key", async () => {
+    findFirst.mockResolvedValue(
+      itemRow({ fileUrl: "user_1/files/abc.pdf", fileName: "spec.pdf", fileSize: 2048 }),
+    )
+
+    const item = await getItemById("user_1", "item_1")
+
+    expect(item?.fileUrl).toBe("/api/items/item_1/file")
+    expect(JSON.stringify(item)).not.toContain("user_1/files/abc.pdf")
+    expect(item?.fileName).toBe("spec.pdf")
+    expect(item?.fileSize).toBe(2048)
+  })
+
+  it("keeps fileUrl null for an item with no file", async () => {
+    findFirst.mockResolvedValue(itemRow())
+
+    const item = await getItemById("user_1", "item_1")
+
+    expect(item?.fileUrl).toBeNull()
+  })
 })
 
 describe("updateItem", () => {
@@ -242,6 +264,7 @@ describe("deleteItem", () => {
   const DELETED_ROW = {
     id: "item_1",
     title: "useDebounce hook",
+    fileUrl: null,
     type: { slug: "snippets" },
   }
 
@@ -264,7 +287,20 @@ describe("deleteItem", () => {
       id: "item_1",
       title: "useDebounce hook",
       typeSlug: "snippets",
+      fileKey: null,
     })
+  })
+
+  it("returns the R2 key of a deleted file item so the object can be removed", async () => {
+    deleteFn.mockResolvedValue({
+      ...DELETED_ROW,
+      fileUrl: "user_1/files/abc.pdf",
+      type: { slug: "files" },
+    })
+
+    const result = await deleteItem("user_1", "item_1")
+
+    expect(result?.fileKey).toBe("user_1/files/abc.pdf")
   })
 
   it("deletes in one statement instead of looking the item up first", async () => {
@@ -317,6 +353,9 @@ const CREATE_FIELDS = {
   content: "export function useDebounce() {}",
   language: "typescript",
   url: null,
+  fileUrl: null,
+  fileName: null,
+  fileSize: null,
   tags: ["react", "hooks"],
 }
 
@@ -330,6 +369,23 @@ describe("createItem", () => {
       userId: "user_1",
       typeId: "type_1",
       title: "useDebounce hook",
+    })
+  })
+
+  it("stores the file fields it is given", async () => {
+    create.mockResolvedValue(itemRow())
+
+    await createItem("user_1", {
+      ...CREATE_FIELDS,
+      fileUrl: "user_1/files/abc.pdf",
+      fileName: "spec.pdf",
+      fileSize: 2048,
+    })
+
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      fileUrl: "user_1/files/abc.pdf",
+      fileName: "spec.pdf",
+      fileSize: 2048,
     })
   })
 
@@ -491,5 +547,36 @@ describe("getSystemItemTypes", () => {
     // The query must not pre-filter FILE types: the sidebar still lists them
     // (with a PRO badge) and only the create dialog drops them.
     expect(result.some((t) => t.category === "FILE")).toBe(true)
+  })
+})
+
+describe("getItemFile", () => {
+  it("scopes the lookup to the owning user", async () => {
+    findFirst.mockResolvedValue({ fileUrl: "user_1/files/abc.pdf", fileName: "spec.pdf" })
+
+    await getItemFile("user_1", "item_1")
+
+    expect(findFirst.mock.calls[0][0].where).toEqual({ id: "item_1", userId: "user_1" })
+  })
+
+  it("returns the key and name", async () => {
+    findFirst.mockResolvedValue({ fileUrl: "user_1/files/abc.pdf", fileName: "spec.pdf" })
+
+    await expect(getItemFile("user_1", "item_1")).resolves.toEqual({
+      key: "user_1/files/abc.pdf",
+      fileName: "spec.pdf",
+    })
+  })
+
+  it("returns null for a missing or foreign item", async () => {
+    findFirst.mockResolvedValue(null)
+
+    await expect(getItemFile("user_1", "item_1")).resolves.toBeNull()
+  })
+
+  it("returns null for an item that has no file", async () => {
+    findFirst.mockResolvedValue({ fileUrl: null, fileName: null })
+
+    await expect(getItemFile("user_1", "item_1")).resolves.toBeNull()
   })
 })

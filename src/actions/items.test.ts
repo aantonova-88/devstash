@@ -6,6 +6,8 @@ const deleteItemQuery = vi.fn()
 const createItemQuery = vi.fn()
 const getSystemItemTypeById = vi.fn()
 const revalidatePath = vi.fn()
+const deleteObject = vi.fn()
+const headObject = vi.fn()
 
 vi.mock("@/auth", () => ({ auth }))
 vi.mock("@/lib/db/items", () => ({
@@ -15,6 +17,7 @@ vi.mock("@/lib/db/items", () => ({
   getSystemItemTypeById,
 }))
 vi.mock("next/cache", () => ({ revalidatePath }))
+vi.mock("@/lib/r2", () => ({ deleteObject, headObject }))
 
 const { updateItem, deleteItem, createItem } = await import("@/actions/items")
 
@@ -154,11 +157,60 @@ describe("updateItem", () => {
 })
 
 describe("deleteItem", () => {
-  const DELETED = { id: "item_1", title: "useDebounce hook", typeSlug: "snippets" }
+  const DELETED = {
+    id: "item_1",
+    title: "useDebounce hook",
+    typeSlug: "snippets",
+    fileKey: null,
+  }
+  const FILE_KEY = "user_1/files/0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.pdf"
 
   beforeEach(() => {
     deleteItemQuery.mockReset()
+    deleteObject.mockReset()
     deleteItemQuery.mockResolvedValue(DELETED)
+    deleteObject.mockResolvedValue(undefined)
+  })
+
+  describe("stored files", () => {
+    it("removes the item's object from R2 using the key the query returned", async () => {
+      deleteItemQuery.mockResolvedValue({ ...DELETED, typeSlug: "files", fileKey: FILE_KEY })
+
+      await deleteItem("item_1")
+
+      expect(deleteObject).toHaveBeenCalledWith(FILE_KEY)
+    })
+
+    it("does not touch R2 for an item with no file", async () => {
+      await deleteItem("item_1")
+
+      expect(deleteObject).not.toHaveBeenCalled()
+    })
+
+    it("does not touch R2 when the item was not found", async () => {
+      deleteItemQuery.mockResolvedValue(null)
+
+      await deleteItem("item_1")
+
+      expect(deleteObject).not.toHaveBeenCalled()
+    })
+
+    it("still reports success when R2 fails, since the row is already gone", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {})
+      const deleted = { ...DELETED, typeSlug: "files", fileKey: FILE_KEY }
+      deleteItemQuery.mockResolvedValue(deleted)
+      deleteObject.mockRejectedValue(new Error("R2 unavailable"))
+
+      const result = await deleteItem("item_1")
+
+      expect(result).toEqual({ success: true, data: deleted })
+      expect(revalidatePath).toHaveBeenCalledWith("/items/files")
+      expect(logged).toHaveBeenCalledWith(
+        "deleteItem: could not remove file from R2",
+        FILE_KEY,
+        expect.any(Error)
+      )
+    })
   })
 
   it("returns the deleted item on success", async () => {
@@ -296,6 +348,7 @@ describe("createItem", () => {
   beforeEach(() => {
     createItemQuery.mockReset()
     getSystemItemTypeById.mockReset()
+    headObject.mockReset()
     auth.mockResolvedValue({ user: { id: "user_1" } })
     getSystemItemTypeById.mockResolvedValue(SNIPPET_TYPE)
     createItemQuery.mockResolvedValue(CREATED)
@@ -371,16 +424,121 @@ describe("createItem", () => {
     expect(createItemQuery).not.toHaveBeenCalled()
   })
 
-  it("rejects FILE types even though the dialog never offers them", async () => {
-    getSystemItemTypeById.mockResolvedValue(FILE_TYPE)
+  it("stores no file fields for a non-FILE type, even if a key is sent", async () => {
+    await createItem({ ...CREATE_INPUT, fileKey: "user_1/files/whatever.pdf" })
 
-    const result = await createItem({ ...CREATE_INPUT, typeId: FILE_TYPE.id })
-
-    expect(result).toEqual({
-      success: false,
-      error: "File and image items are not supported yet.",
+    expect(headObject).not.toHaveBeenCalled()
+    expect(createItemQuery.mock.calls[0][1]).toMatchObject({
+      fileUrl: null,
+      fileName: null,
+      fileSize: null,
     })
-    expect(createItemQuery).not.toHaveBeenCalled()
+  })
+
+  describe("FILE types", () => {
+    const KEY = "user_1/files/0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.pdf"
+    const FILE_INPUT = {
+      ...CREATE_INPUT,
+      typeId: FILE_TYPE.id,
+      content: null,
+      language: null,
+      fileKey: KEY,
+    }
+
+    beforeEach(() => {
+      headObject.mockReset()
+      getSystemItemTypeById.mockResolvedValue(FILE_TYPE)
+      headObject.mockResolvedValue({ size: 2048, fileName: "spec.pdf" })
+    })
+
+    it("stores the key with the name and size read back from R2", async () => {
+      await createItem(FILE_INPUT)
+
+      expect(headObject).toHaveBeenCalledWith(KEY)
+      expect(createItemQuery.mock.calls[0][1]).toMatchObject({
+        fileUrl: KEY,
+        fileName: "spec.pdf",
+        fileSize: 2048,
+        content: null,
+        url: null,
+        language: null,
+      })
+    })
+
+    it("ignores a name or size the client tries to supply", async () => {
+      await createItem({ ...FILE_INPUT, fileName: "evil.exe", fileSize: 1 } as never)
+
+      expect(createItemQuery.mock.calls[0][1]).toMatchObject({
+        fileName: "spec.pdf",
+        fileSize: 2048,
+      })
+    })
+
+    it("falls back to the key's basename when the object has no stored name", async () => {
+      headObject.mockResolvedValue({ size: 2048, fileName: null })
+
+      await createItem(FILE_INPUT)
+
+      expect(createItemQuery.mock.calls[0][1].fileName).toBe(
+        "0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.pdf"
+      )
+    })
+
+    it("requires an upload", async () => {
+      const result = await createItem({ ...FILE_INPUT, fileKey: null })
+
+      expect(result).toEqual({ success: false, error: "Upload a file for this item type." })
+      expect(createItemQuery).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ["another user's key", "user_2/files/0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.pdf"],
+      ["an image key on a File item", "user_1/images/0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.png"],
+      ["a path-traversal key", "user_1/files/../../user_2/files/x.pdf"],
+    ])("rejects %s without asking R2 or writing", async (_label, fileKey) => {
+      const result = await createItem({ ...FILE_INPUT, fileKey })
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid upload. Please upload the file again.",
+      })
+      expect(headObject).not.toHaveBeenCalled()
+      expect(createItemQuery).not.toHaveBeenCalled()
+    })
+
+    it("rejects a key whose object is not in R2", async () => {
+      headObject.mockResolvedValue(null)
+
+      const result = await createItem(FILE_INPUT)
+
+      expect(result).toEqual({
+        success: false,
+        error: "Upload not found. Please upload the file again.",
+      })
+      expect(createItemQuery).not.toHaveBeenCalled()
+    })
+
+    it("re-checks the size limit against what R2 actually stored", async () => {
+      headObject.mockResolvedValue({ size: 10 * 1024 * 1024 + 1, fileName: "big.pdf" })
+
+      const result = await createItem(FILE_INPUT)
+
+      expect(result).toEqual({ success: false, error: "File is too large." })
+      expect(createItemQuery).not.toHaveBeenCalled()
+    })
+
+    it("applies the Image type's own, smaller limit", async () => {
+      getSystemItemTypeById.mockResolvedValue({ ...FILE_TYPE, id: "type_7", slug: "images" })
+      headObject.mockResolvedValue({ size: 5 * 1024 * 1024 + 1, fileName: "big.png" })
+
+      const result = await createItem({
+        ...FILE_INPUT,
+        typeId: "type_7",
+        fileKey: "user_1/images/0b9f0a52-3c1e-4c55-9d7e-2f1f3a6b8c90.png",
+      })
+
+      expect(result).toEqual({ success: false, error: "File is too large." })
+    })
   })
 
   it("hands the query the parsed data, not the raw input", async () => {
