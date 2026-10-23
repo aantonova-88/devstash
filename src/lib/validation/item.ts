@@ -38,6 +38,11 @@ export type UpdateItemData = z.output<typeof updateItemSchema>
 export const createItemSchema = z.object({
   typeId: z.string().trim().min(1, "Select an item type"),
   ...itemFields,
+  /**
+   * Storage key returned by `/api/upload`, for File and Image items. Only the
+   * key is accepted — the name and size are read back from R2, not the client.
+   */
+  fileKey: z.string().trim().min(1).max(512).nullable().default(null),
 })
 
 export type CreateItemInput = z.input<typeof createItemSchema>
@@ -73,7 +78,12 @@ export interface ContentFields {
 }
 
 export type ContentFieldsResult =
-  | { ok: true; fields: ContentFields }
+  | {
+      ok: true
+      fields: ContentFields
+      /** Upload to attach; set only for FILE types, which always require one. */
+      fileKey: string | null
+    }
   | { ok: false; error: string }
 
 /**
@@ -87,10 +97,17 @@ export type ContentFieldsResult =
  */
 export function contentFieldsForType(
   type: ItemTypeShape,
-  data: Pick<CreateItemData, "content" | "url" | "language">
+  data: Pick<CreateItemData, "content" | "url" | "language" | "fileKey">
 ): ContentFieldsResult {
   if (type.category === "FILE") {
-    return { ok: false, error: "File and image items are not supported yet." }
+    if (data.fileKey === null) {
+      return { ok: false, error: "Upload a file for this item type." }
+    }
+    return {
+      ok: true,
+      fields: { content: null, url: null, language: null },
+      fileKey: data.fileKey,
+    }
   }
 
   const isUrl = type.category === "URL"
@@ -105,6 +122,7 @@ export function contentFieldsForType(
       url: isUrl ? data.url : null,
       language: LANGUAGE_SLUGS.has(type.slug) ? data.language : null,
     },
+    fileKey: null,
   }
 }
 

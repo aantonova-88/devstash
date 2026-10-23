@@ -1,16 +1,41 @@
-# Current Feature
+# Current Feature: File & Image Upload (Cloudflare R2)
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Upload API route that stores files in Cloudflare R2
+- All Prisma/DB functions stay in `src/lib/db/items.ts`
+- `FileUpload` component with drag-and-drop and an upload progress indicator
+- Create item modal uses `FileUpload` for the File and Image types (both currently filtered out of the dialog)
+- Image preview for images, file info (name, size) for files
+- Deleting an item also deletes its object from R2
+- Download proxy API route (avoids CORS) and a Download button in `ItemDrawer` for FILE-category items
+- Enforce file constraints on both client and server:
+  - Images: 5 MB max — `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg` (`image/png`, `image/jpeg`, `image/gif`, `image/webp`, `image/svg+xml`)
+  - Files: 10 MB max — `.pdf`, `.txt`, `.md`, `.json`, `.yaml`, `.yml`, `.xml`, `.csv`, `.toml`, `.ini` (`application/pdf`, `text/plain`, `text/markdown`, `application/json`, `application/x-yaml`, `text/yaml`, `application/xml`, `text/xml`, `text/csv`, `application/toml`)
 
 ## Notes
 
-None
+- Spec: `context/features/file-image-spec.md`
+- **Upload flow is not settled by the spec.** `project-overview.md` §12 describes presigned URLs (client uploads straight to R2, then confirms), while the spec says "upload API route" + progress. Presigned PUT via XHR gives real progress and keeps large bodies off the Next.js server; proxying through the route is simpler but buffers up to 10 MB per request. Decide at `start`.
+- R2 env vars (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`) are listed as "planned — not yet wired" in `.env.example`; R2 is S3-compatible, so `@aws-sdk/client-s3` (+ `s3-request-presigner` if presigned) is the likely dependency.
+- Existing pieces this unblocks: `contentFieldsForType` in `src/lib/validation/item.ts` currently rejects FILE types ("File and image items are not supported yet."), `CreateItemDialog` filters FILE types out, and `/items/files` / `/items/images` deliberately render no type-specific create button — all three need revisiting. `Item` already has `fileUrl`, `fileName`, `fileSize`; `ItemContent` already renders `fileUrl` + `formatFileSize` (which tops out at MB — fine under a 10 MB cap).
+- Server must not trust client-declared MIME/size: validate extension + MIME against the type's category, and key objects under the session user (e.g. `<userId>/<cuid>-<name>`) so the download proxy can enforce ownership via `getItemById`-style `userId` scoping.
+- **SVG is an XSS vector** if served inline from the app origin — the download proxy should send `Content-Disposition: attachment` and/or a restrictive CSP / `X-Content-Type-Options: nosniff`; image previews should load via `<img>` (scripts don't run there).
+- R2 deletion on item delete: `deleteItem` already returns the deleted row; it will need `fileUrl`/key too. Decide whether an R2 failure should block the DB delete (likely: delete the row, log the R2 failure).
+- Abandoned uploads (file uploaded, item never saved) will orphan R2 objects — same class of gap as the orphaned `Tag` rows; note as known gap unless addressed.
+- Pro gate: File/Image are Pro-only, but `isProUser()` still doesn't exist and all users are Pro in development — out of scope unless decided otherwise.
+- Tests: R2 client must be mocked (no network); cover validation helpers (size/extension/MIME per category), the upload/delete server logic, and `lib/db` changes.
+- **Implementation decisions (start):**
+  - Upload goes *through* `POST /api/upload` (multipart, XHR for progress), not presigned URLs — no bucket CORS needed, and the server validates the real bytes. Keys are `<userId>/<slug>/<uuid>.<ext>`; the original name travels as R2 object metadata.
+  - `Item.fileUrl` stores the private R2 **key**; `serializeItemDetail` exposes it to the client only as `/api/items/<id>/file`. `R2_PUBLIC_URL` is unused — the bucket can stay private.
+  - `createItem` accepts only `fileKey`; it checks the key's user/slug prefix (`isOwnedObjectKey`), then `HeadObject` supplies name and size, and the size limit is re-checked against what R2 stored.
+  - Proxy headers: images inline (others attachment, `?download=1` forces it), `nosniff`, sandboxing CSP (verified: a script-bearing SVG opened directly runs with origin `null` and its script never fires), `Cache-Control: private, no-store` (the first `max-age=3600` let a signed-out fetch be served from the browser cache).
+  - R2 delete runs after the DB delete; a storage failure is logged, not surfaced.
+- **Known gaps:** abandoned uploads (dialog cancelled, chip switched, file removed) leave orphan R2 objects; account deletion cascades items but not their R2 objects; File/Image cards on the grid show no thumbnail; MIME check follows the spec list, so e.g. Windows reporting `.csv` as `application/vnd.ms-excel` is rejected; AWS SDK releases after Jan 2027 require Node 22 (`.nvmrc` pins 20).
 
 ## History
 

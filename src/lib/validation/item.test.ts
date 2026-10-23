@@ -238,6 +238,7 @@ const ALL_FIELDS = {
   content: "export function useDebounce() {}",
   url: "https://example.com",
   language: "typescript",
+  fileKey: null,
 }
 
 describe("contentFieldsForType", () => {
@@ -247,6 +248,7 @@ describe("contentFieldsForType", () => {
     expect(result).toEqual({
       ok: true,
       fields: { content: ALL_FIELDS.content, url: null, language: null },
+      fileKey: null,
     })
   })
 
@@ -273,6 +275,7 @@ describe("contentFieldsForType", () => {
     expect(result).toEqual({
       ok: true,
       fields: { content: null, url: "https://example.com", language: null },
+      fileKey: null,
     })
   })
 
@@ -291,14 +294,31 @@ describe("contentFieldsForType", () => {
     expect(result.ok).toBe(true)
   })
 
-  it("rejects FILE types, which have no way to receive content yet", () => {
+  it("requires an upload for a FILE type", () => {
     const result = contentFieldsForType(FILE_TYPE, ALL_FIELDS)
 
+    expect(result).toEqual({ ok: false, error: "Upload a file for this item type." })
+  })
+
+  it("keeps the upload key for a FILE type and drops every text field", () => {
+    const result = contentFieldsForType(FILE_TYPE, { ...ALL_FIELDS, fileKey: "k" })
+
     expect(result).toEqual({
-      ok: false,
-      error: "File and image items are not supported yet.",
+      ok: true,
+      fields: { content: null, url: null, language: null },
+      fileKey: "k",
     })
   })
+
+  it.each([
+    ["TEXT", TEXT_TYPE],
+    ["URL", URL_TYPE],
+  ])("drops an upload key sent for a %s type", (_label, type) => {
+    const result = contentFieldsForType(type, { ...ALL_FIELDS, fileKey: "k" })
+
+    expect(result.ok && result.fileKey).toBeNull()
+  })
+
 })
 
 describe("contentEditorFor", () => {

@@ -43,17 +43,13 @@ export default async function ItemsByTypePage({
           </p>
         </div>
 
-        {/* FILE types have no create path until uploads land, which is why the
-            dialog filters them out — so this page must not offer the button. */}
-        {type.category !== "FILE" && (
-          <div className="ml-auto">
-            <CreateItemDialog
-              itemTypes={itemTypes}
-              initialTypeId={type.id}
-              label={`New ${type.name.toLowerCase()}`}
-            />
-          </div>
-        )}
+        <div className="ml-auto">
+          <CreateItemDialog
+            itemTypes={itemTypes}
+            initialTypeId={type.id}
+            label={`New ${type.name.toLowerCase()}`}
+          />
+        </div>
       </div>
 
       {/* Items */}

@@ -29,9 +29,8 @@ interface CreateItemDialogProps {
  * Owns a "New item" button and the dialog it opens — the top bar's generic one,
  * and the type-specific one on each `/items/[type]` page.
  *
- * FILE types are filtered out: uploads are not implemented, so there is no way
- * to give a file or image item its content yet. The form is only mounted while
- * the dialog is open, so each open starts from a clean set of fields.
+ * The form is only mounted while the dialog is open, so each open starts from a
+ * clean set of fields.
  */
 export function CreateItemDialog({
   itemTypes,
@@ -40,8 +39,7 @@ export function CreateItemDialog({
 }: CreateItemDialogProps) {
   const [open, setOpen] = useState(false)
 
-  const types = itemTypes.filter((t) => t.category !== "FILE")
-  if (types.length === 0) return null
+  if (itemTypes.length === 0) return null
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -61,7 +59,7 @@ export function CreateItemDialog({
         </DialogHeader>
 
         <CreateItemForm
-          types={types}
+          types={itemTypes}
           initialTypeId={initialTypeId}
           onCancel={() => setOpen(false)}
           onCreated={() => setOpen(false)}

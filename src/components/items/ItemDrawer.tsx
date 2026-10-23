@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { toast } from "sonner"
 import {
   Copy,
+  Download,
   ExternalLink,
   File,
   Pencil,
@@ -18,7 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { CodeEditor } from "@/components/items/CodeEditor"
 import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { DeleteItemDialog } from "@/components/items/DeleteItemDialog"
@@ -109,7 +111,9 @@ function ItemDrawerBody({
   const [editing, setEditing] = useState(false)
 
   async function copyContent() {
-    const value = item.content ?? item.url ?? item.fileUrl
+    // A file's URL is a same-origin proxy path, which is no use on a clipboard;
+    // files get a Download button instead.
+    const value = item.content ?? item.url
     if (!value) return
 
     try {
@@ -320,23 +324,37 @@ function ItemContent({ item, onCopy }: { item: ItemDetail; onCopy: () => void })
   }
 
   if (item.fileUrl) {
+    const isImage = item.type.slug === "images"
+
     return (
       <section className="space-y-2">
-        <SectionLabel>File</SectionLabel>
-        <a
-          href={item.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm hover:bg-muted"
-        >
-          <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{item.fileName ?? "Download"}</span>
-          {item.fileSize != null && (
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-              {formatFileSize(item.fileSize)}
-            </span>
+        <SectionLabel>{isImage ? "Image" : "File"}</SectionLabel>
+        <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
+          {isImage && (
+            <div className="flex justify-center border-b border-border bg-background/40 p-3">
+              {/* Served by the ownership-checked proxy, which the image optimizer
+                  cannot call with the user's session — hence `unoptimized`. */}
+              <Image
+                src={item.fileUrl}
+                alt={item.fileName ?? item.title}
+                width={0}
+                height={0}
+                unoptimized
+                loading="eager"
+                className="h-auto max-h-96 w-auto max-w-full rounded object-contain"
+              />
+            </div>
           )}
-        </a>
+          <div className="flex items-center gap-2 px-3 py-2.5 text-sm">
+            <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{item.fileName ?? "Untitled file"}</span>
+            {item.fileSize != null && (
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                {formatFileSize(item.fileSize)}
+              </span>
+            )}
+          </div>
+        </div>
       </section>
     )
   }
@@ -359,7 +377,7 @@ function ItemActionBar({
   onEdit: () => void
   onDeleted: () => void
 }) {
-  const hasCopyableContent = Boolean(item.content ?? item.url ?? item.fileUrl)
+  const hasCopyableContent = Boolean(item.content ?? item.url)
 
   // Favourite and pin need mutations that have not been written yet; until
   // then they show state but stay inert.
@@ -386,15 +404,26 @@ function ItemActionBar({
         <Pin className={cn(item.isPinned && "fill-primary text-primary")} />
       </Button>
 
-      <Button
-        variant="outline"
-        className="flex-1"
-        onClick={onCopy}
-        disabled={!hasCopyableContent}
-      >
-        <Copy />
-        Copy
-      </Button>
+      {item.fileUrl ? (
+        <a
+          href={`${item.fileUrl}?download=1`}
+          download={item.fileName ?? true}
+          className={cn(buttonVariants({ variant: "outline" }), "flex-1")}
+        >
+          <Download />
+          Download
+        </a>
+      ) : (
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={onCopy}
+          disabled={!hasCopyableContent}
+        >
+          <Copy />
+          Copy
+        </Button>
+      )}
       <Button className="flex-1" onClick={onEdit}>
         <Pencil />
         Edit
