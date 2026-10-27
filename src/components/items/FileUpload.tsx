@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import Image from "next/image"
-import { File, Loader2, Upload, X } from "lucide-react"
+import { Loader2, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FilePreview } from "@/components/items/FilePreview"
 import { cn, formatFileSize } from "@/lib/utils"
 import {
   FILE_CONSTRAINTS,
@@ -141,25 +141,12 @@ export function FileUpload({
 
   if (value) {
     return (
-      <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
-        {previewUrl && (
-          <div className="flex justify-center border-b border-border bg-background/40 p-3">
-            <Image
-              src={previewUrl}
-              alt={value.fileName}
-              width={0}
-              height={0}
-              unoptimized
-              className="h-auto max-h-56 w-auto max-w-full rounded object-contain"
-            />
-          </div>
-        )}
-        <div className="flex items-center gap-2 px-3 py-2.5 text-sm">
-          <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{value.fileName}</span>
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            {formatFileSize(value.fileSize)}
-          </span>
+      <FilePreview
+        fileName={value.fileName}
+        fileSize={value.fileSize}
+        imageSrc={previewUrl}
+        size="compact"
+        action={
           <Button
             type="button"
             variant="ghost"
@@ -170,8 +157,8 @@ export function FileUpload({
           >
             <X />
           </Button>
-        </div>
-      </div>
+        }
+      />
     )
   }
 

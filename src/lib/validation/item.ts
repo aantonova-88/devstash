@@ -71,6 +71,34 @@ export interface ItemTypeShape {
   category: string
 }
 
+export interface ItemFormLayout {
+  content: boolean
+  url: boolean
+  language: boolean
+  file: boolean
+  /** Which editor the content field uses; meaningful only when `content` is shown. */
+  editor: ContentEditorKind
+}
+
+/**
+ * Which fields the create and edit forms show for a type. This is the client's
+ * mirror of `contentFieldsForType` — a convenience only, since the server drops
+ * whatever the resolved type does not accept.
+ */
+export function formLayoutForType(type: ItemTypeShape): ItemFormLayout {
+  const editor = contentEditorFor(type.slug)
+
+  return {
+    content: type.category === "TEXT",
+    url: type.category === "URL",
+    // The types that carry a language are exactly the code-bearing ones
+    // (snippets, commands), so the same set decides who gets the code editor.
+    language: editor === "code",
+    file: type.category === "FILE",
+    editor,
+  }
+}
+
 export interface ContentFields {
   content: string | null
   url: string | null
