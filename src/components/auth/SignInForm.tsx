@@ -7,11 +7,12 @@ import { signIn } from "next-auth/react"
 import { toast } from "sonner"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { safeCallbackUrl } from "@/lib/redirect"
 
 export function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
+  const callbackUrl = searchParams.get("callbackUrl")
   const urlError = searchParams.get("error")
 
   const [email, setEmail] = useState("")
@@ -94,7 +95,7 @@ export function SignInForm() {
       return
     }
 
-    router.push(callbackUrl)
+    router.push(safeCallbackUrl(callbackUrl, window.location.origin))
     router.refresh()
   }
 

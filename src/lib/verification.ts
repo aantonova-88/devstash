@@ -7,6 +7,11 @@ const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 export function getBaseUrl(request: Request): string {
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL
   if (process.env.AUTH_URL) return process.env.AUTH_URL
+  // The request's Host is attacker-controlled, so emailed links must never be
+  // built from it in production.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("NEXTAUTH_URL or AUTH_URL must be set in production")
+  }
   return new URL(request.url).origin
 }
 

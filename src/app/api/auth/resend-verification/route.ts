@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { emailMatch, normalizeEmail } from "@/lib/email-address"
 import { isEmailVerificationEnabled } from "@/lib/features"
 import { getBaseUrl, issueVerificationEmail } from "@/lib/verification"
 import {
@@ -16,21 +17,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { email } = body as { email?: string }
+    const { email } = body as { email?: unknown }
 
-    if (!email) {
+    if (typeof email !== "string" || !email.trim()) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
     const ip = getClientIp(request)
     const limit = await checkRateLimit(
       resendVerificationLimiter,
-      `${ip}:${email.toLowerCase()}`,
+      `${ip}:${normalizeEmail(email)}`,
     )
     if (!limit.success) return tooManyRequestsResponse(limit)
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: emailMatch(email),
       select: { email: true, name: true, emailVerified: true, password: true },
     })
 
