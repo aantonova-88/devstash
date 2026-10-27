@@ -2,15 +2,23 @@
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+Fix branch `fix/audit-security-quick-wins` for the top findings from the code-scanner audit:
+
+1. **Open redirect after sign-in** — `SignInForm` passes the `callbackUrl` query param straight to `router.push`. Only same-origin targets may be followed; anything else falls back to `/dashboard`.
+2. **HTML injection in emails** — the user's `name` is interpolated raw into the verification and reset email HTML. Escape it, and cap/trim `name` at registration.
+3. **Email case handling** — lookups are case-sensitive while the login rate-limit key is lowercased, so `A@x.com` and `a@x.com` can be two accounts. Store new emails normalized (trim + lowercase) and look users up case-insensitively, so existing mixed-case rows still match.
+4. **Collections over-fetch** — `getRecentCollections` includes full `Item` rows (content etc.) only to count items and derive the dominant type. Select only the type fields.
+5. **Font bug** — `globals.css` defines `--font-sans: var(--font-sans)` (self-reference), so Geist never applies. Point it at `--font-geist-sans` / `--font-geist-mono`.
+6. **`getBaseUrl` production guard** — throw in production when neither `NEXTAUTH_URL` nor `AUTH_URL` is set instead of trusting the request Host. (`AUTH_URL` is already set on Vercel, so this is defence in depth.)
 
 ## Notes
 
-None
+- NextAuth's middleware sets `callbackUrl` to an absolute `request.nextUrl.href`, so the guard must accept same-origin absolute URLs (returning a relative path), not only `/`-prefixed paths.
+- Case-insensitive lookup (rather than lowercasing the lookup) avoids locking out any existing user whose stored email has uppercase letters.
 
 ## History
 

@@ -35,4 +35,22 @@ describe("getBaseUrl", () => {
       "http://localhost:3000",
     )
   })
+
+  it("throws in production instead of trusting the request Host", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXTAUTH_URL", undefined)
+    vi.stubEnv("AUTH_URL", undefined)
+    expect(() => getBaseUrl(requestTo("https://evil.example/api/auth/forgot-password"))).toThrow(
+      /NEXTAUTH_URL or AUTH_URL/,
+    )
+  })
+
+  it("uses the configured URL in production", () => {
+    vi.stubEnv("NODE_ENV", "production")
+    vi.stubEnv("NEXTAUTH_URL", undefined)
+    vi.stubEnv("AUTH_URL", "https://devstash.io")
+    expect(getBaseUrl(requestTo("https://evil.example/api/auth/forgot-password"))).toBe(
+      "https://devstash.io",
+    )
+  })
 })

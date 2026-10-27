@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { emailMatch, MAX_NAME_LENGTH, normalizeEmail } from "@/lib/email-address"
 import { isEmailVerificationEnabled } from "@/lib/features"
 import { getBaseUrl, issueVerificationEmail } from "@/lib/verification"
 import {
@@ -15,16 +16,35 @@ export async function POST(request: Request) {
     const ipLimit = await checkRateLimit(registerLimiter, getClientIp(request))
     if (!ipLimit.success) return tooManyRequestsResponse(ipLimit)
 
-    const body = await request.json()
-    const { name, email, password, confirmPassword } = body as {
-      name: string
-      email: string
-      password: string
-      confirmPassword: string
+    const body = await request.json().catch(() => ({}))
+    const { name: rawName, email: rawEmail, password, confirmPassword } = body as {
+      name?: unknown
+      email?: unknown
+      password?: unknown
+      confirmPassword?: unknown
     }
+
+    if (
+      typeof rawName !== "string" ||
+      typeof rawEmail !== "string" ||
+      typeof password !== "string" ||
+      typeof confirmPassword !== "string"
+    ) {
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    const name = rawName.trim()
+    const email = normalizeEmail(rawEmail)
 
     if (!name || !email || !password || !confirmPassword) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    if (name.length > MAX_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `Name must be at most ${MAX_NAME_LENGTH} characters` },
+        { status: 400 },
+      )
     }
 
     if (password !== confirmPassword) {
@@ -35,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } })
+    const existing = await prisma.user.findFirst({ where: emailMatch(email), select: { id: true } })
     if (existing) {
       return NextResponse.json({ error: "Email already in use" }, { status: 409 })
     }

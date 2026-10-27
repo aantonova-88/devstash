@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { emailMatch } from "@/lib/email-address"
 import { getBaseUrl } from "@/lib/verification"
 import { issuePasswordResetEmail } from "@/lib/password-reset"
 import {
@@ -15,14 +16,14 @@ export async function POST(request: Request) {
     if (!ipLimit.success) return tooManyRequestsResponse(ipLimit)
 
     const body = await request.json().catch(() => ({}))
-    const { email } = body as { email?: string }
+    const { email } = body as { email?: unknown }
 
-    if (!email) {
+    if (typeof email !== "string" || !email.trim()) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: emailMatch(email),
       select: { email: true, name: true, password: true },
     })
 

@@ -17,10 +17,12 @@ export const getRecentCollections = cache(async (userId: string): Promise<Collec
   const collections = await prisma.collection.findMany({
     where: { userId },
     include: {
+      // Only the type is needed, to count items and pick the dominant type —
+      // never load the items' own columns (content can be large).
       items: {
-        include: {
+        select: {
           item: {
-            include: {
+            select: {
               type: {
                 select: { icon: true, color: true, name: true },
               },
