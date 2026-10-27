@@ -23,6 +23,8 @@ export interface ItemWithMeta {
   updatedAt: string
   /** Proxy URL (`/api/items/<id>/file`), never the R2 key; null when no file. */
   fileUrl: string | null
+  fileName: string | null
+  fileSize: number | null
   type: { name: string; slug: string; icon: string; color: string }
   tags: { tag: { name: string } }[]
 }
@@ -58,6 +60,8 @@ function serializeItem(item: ItemCardRow): ItemWithMeta {
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
     fileUrl: item.fileUrl ? itemFileUrl(item.id) : null,
+    fileName: item.fileName,
+    fileSize: item.fileSize,
     type: item.type,
     tags: item.tags.map(({ tag }) => ({ tag: { name: tag.name } })),
   }
