@@ -4,6 +4,7 @@ import {
   createItemSchema,
   contentFieldsForType,
   contentEditorFor,
+  formLayoutForType,
   parseTagInput,
   LANGUAGE_SLUGS,
   MARKDOWN_SLUGS,
@@ -346,5 +347,68 @@ describe("contentEditorFor", () => {
   it("never lets a slug sit in both the code and markdown sets", () => {
     const overlap = [...MARKDOWN_SLUGS].filter((slug) => LANGUAGE_SLUGS.has(slug))
     expect(overlap).toEqual([])
+  })
+})
+
+describe("formLayoutForType", () => {
+  it("shows content and language with the code editor for snippets and commands", () => {
+    for (const slug of ["snippets", "commands"]) {
+      expect(formLayoutForType({ slug, category: "TEXT" })).toEqual({
+        content: true,
+        url: false,
+        language: true,
+        file: false,
+        editor: "code",
+      })
+    }
+  })
+
+  it("shows content without language, in markdown, for notes and prompts", () => {
+    for (const slug of ["notes", "prompts"]) {
+      expect(formLayoutForType({ slug, category: "TEXT" })).toEqual({
+        content: true,
+        url: false,
+        language: false,
+        file: false,
+        editor: "markdown",
+      })
+    }
+  })
+
+  it("shows only the URL field for link types", () => {
+    expect(formLayoutForType({ slug: "links", category: "URL" })).toMatchObject({
+      content: false,
+      url: true,
+      language: false,
+      file: false,
+    })
+  })
+
+  it("shows only the upload for file and image types", () => {
+    for (const slug of ["files", "images"]) {
+      expect(formLayoutForType({ slug, category: "FILE" })).toMatchObject({
+        content: false,
+        url: false,
+        language: false,
+        file: true,
+      })
+    }
+  })
+
+  it("keeps the plain textarea for a TEXT type in neither editor set", () => {
+    expect(formLayoutForType({ slug: "my-custom-type", category: "TEXT" })).toEqual({
+      content: true,
+      url: false,
+      language: false,
+      file: false,
+      editor: "plain",
+    })
+  })
+
+  it("decides content, url and file by category, not slug", () => {
+    expect(formLayoutForType({ slug: "notes", category: "URL" })).toMatchObject({
+      content: false,
+      url: true,
+    })
   })
 })

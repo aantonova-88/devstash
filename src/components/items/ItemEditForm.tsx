@@ -5,14 +5,9 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { updateItem } from "@/actions/items"
-import { CodeEditor } from "@/components/items/CodeEditor"
-import { MarkdownEditor } from "@/components/items/MarkdownEditor"
-import { Field } from "@/components/items/Field"
-import { fallbackLanguageForSlug } from "@/lib/monaco"
-import { contentEditorFor, parseTagInput } from "@/lib/validation/item"
+import { ItemFields, type ItemFieldValues } from "@/components/items/ItemFields"
+import { formLayoutForType, parseTagInput } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
 
 interface ItemEditFormProps {
@@ -31,20 +26,17 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [title, setTitle] = useState(item.title)
-  const [description, setDescription] = useState(item.description ?? "")
-  const [content, setContent] = useState(item.content ?? "")
-  const [language, setLanguage] = useState(item.language ?? "")
-  const [url, setUrl] = useState(item.url ?? "")
-  const [tags, setTags] = useState(item.tags.map((t) => t.name).join(", "))
+  const [values, setValues] = useState<ItemFieldValues>(() => ({
+    title: item.title,
+    description: item.description ?? "",
+    content: item.content ?? "",
+    language: item.language ?? "",
+    url: item.url ?? "",
+    tags: item.tags.map((t) => t.name).join(", "),
+  }))
 
-  const showContent = item.type.category === "TEXT"
-  const showUrl = item.type.category === "URL"
-  // The types that carry a language are exactly the code-bearing ones
-  // (snippets, commands), so the same set decides who gets the code editor.
-  const editor = contentEditorFor(item.type.slug)
-  const isCodeType = editor === "code"
-  const showLanguage = isCodeType
+  const layout = formLayoutForType(item.type)
+  const titleEmpty = values.title.trim() === ""
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -52,12 +44,12 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
 
     startTransition(async () => {
       const result = await updateItem(item.id, {
-        title,
-        description,
-        content: showContent ? content : null,
-        language: showLanguage ? language : null,
-        url: showUrl ? url : null,
-        tags: parseTagInput(tags),
+        title: values.title,
+        description: values.description,
+        content: layout.content ? values.content : null,
+        language: layout.language ? values.language : null,
+        url: layout.url ? values.url : null,
+        tags: parseTagInput(values.tags),
       })
 
       if (!result.success) {
@@ -82,100 +74,17 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="flex-1 space-y-4 overflow-auto p-6">
-        <Field label="Title" htmlFor="item-title">
-          <Input
-            id="item-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={pending}
-            aria-invalid={title.trim() === ""}
-            autoFocus
-          />
-        </Field>
-
-        <Field label="Description" htmlFor="item-description">
-          <Textarea
-            id="item-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={pending}
-            rows={2}
-            placeholder="Optional short description"
-          />
-        </Field>
-
-        {showContent && (
-          <Field label="Content" htmlFor={isCodeType ? undefined : "item-content"}>
-            {isCodeType ? (
-              <CodeEditor
-                ariaLabel="Content"
-                value={content}
-                // Live state, so retyping the language re-highlights immediately.
-                language={language}
-                fallbackLanguage={fallbackLanguageForSlug(item.type.slug)}
-                onChange={setContent}
-                disabled={pending}
-                minHeight={200}
-              />
-            ) : editor === "markdown" ? (
-              <MarkdownEditor
-                id="item-content"
-                value={content}
-                onChange={setContent}
-                disabled={pending}
-                minHeight={200}
-              />
-            ) : (
-              <Textarea
-                id="item-content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={pending}
-                rows={10}
-                className="max-h-96 font-mono text-xs leading-relaxed"
-              />
-            )}
-          </Field>
-        )}
-
-        {showLanguage && (
-          <Field label="Language" htmlFor="item-language">
-            <Input
-              id="item-language"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              disabled={pending}
-              placeholder="typescript"
-            />
-          </Field>
-        )}
-
-        {showUrl && (
-          <Field label="URL" htmlFor="item-url">
-            <Input
-              id="item-url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={pending}
-              placeholder="https://example.com"
-            />
-          </Field>
-        )}
-
-        <Field
-          label="Tags"
-          htmlFor="item-tags"
-          hint="Comma-separated. AI-suggested tags are managed separately."
-        >
-          <Input
-            id="item-tags"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            disabled={pending}
-            placeholder="react, hooks, patterns"
-          />
-        </Field>
+        <ItemFields
+          idPrefix="item"
+          typeSlug={item.type.slug}
+          layout={layout}
+          values={values}
+          onChange={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
+          disabled={pending}
+          size="drawer"
+          titleInvalid={titleEmpty}
+          tagsHint="Comma-separated. AI-suggested tags are managed separately."
+        />
 
         {error && (
           <p role="alert" className="text-sm text-destructive">
@@ -194,7 +103,7 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
         >
           Cancel
         </Button>
-        <Button type="submit" className="flex-1" disabled={pending || title.trim() === ""}>
+        <Button type="submit" className="flex-1" disabled={pending || titleEmpty}>
           {pending && <Loader2 className="animate-spin" />}
           {pending ? "Saving…" : "Save"}
         </Button>

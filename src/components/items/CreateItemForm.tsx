@@ -3,21 +3,15 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { File, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { createItem } from "@/actions/items"
-import { CodeEditor } from "@/components/items/CodeEditor"
-import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { Field } from "@/components/items/Field"
 import { FileUpload, type UploadedFile } from "@/components/items/FileUpload"
-import { ICON_MAP } from "@/lib/icons"
-import { fallbackLanguageForSlug } from "@/lib/monaco"
-import { cn } from "@/lib/utils"
+import { ItemFields, type ItemFieldValues } from "@/components/items/ItemFields"
+import { TypeChips } from "@/components/items/TypeChips"
 import { isFileTypeSlug } from "@/lib/validation/file"
-import { contentEditorFor, parseTagInput } from "@/lib/validation/item"
+import { formLayoutForType, parseTagInput } from "@/lib/validation/item"
 import type { SidebarItemType } from "@/lib/db/items"
 
 interface CreateItemFormProps {
@@ -27,6 +21,15 @@ interface CreateItemFormProps {
   initialTypeId?: string
   onCancel: () => void
   onCreated: () => void
+}
+
+const EMPTY_VALUES: ItemFieldValues = {
+  title: "",
+  description: "",
+  content: "",
+  language: "",
+  url: "",
+  tags: "",
 }
 
 /**
@@ -50,34 +53,22 @@ export function CreateItemForm({
   const [typeId, setTypeId] = useState(
     () => types.find((t) => t.id === initialTypeId)?.id ?? types[0].id,
   )
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [content, setContent] = useState("")
-  const [language, setLanguage] = useState("")
-  const [url, setUrl] = useState("")
-  const [tags, setTags] = useState("")
+  const [values, setValues] = useState(EMPTY_VALUES)
   // Remembered with the slug it was uploaded for: an image's key is rejected for
   // a File item, so switching chips must drop it rather than submit it.
   const [upload, setUpload] = useState<{ slug: string; file: UploadedFile } | null>(null)
   const [uploading, setUploading] = useState(false)
 
   const type = types.find((t) => t.id === typeId) ?? types[0]
-  const showContent = type.category === "TEXT"
-  const showUrl = type.category === "URL"
-  const fileSlug =
-    type.category === "FILE" && isFileTypeSlug(type.slug) ? type.slug : null
+  const layout = formLayoutForType(type)
+  const fileSlug = layout.file && isFileTypeSlug(type.slug) ? type.slug : null
   const uploadedFile = upload?.slug === type.slug ? upload.file : null
-  // The types that carry a language are exactly the code-bearing ones
-  // (snippets, commands), so the same set decides who gets the code editor.
-  const editor = contentEditorFor(type.slug)
-  const isCodeType = editor === "code"
-  const showLanguage = isCodeType
 
   // Mirrors the server's own requirements so the button reflects them; the
   // action re-checks both against the type it resolves from the database.
   const incomplete =
-    title.trim() === "" ||
-    (showUrl && url.trim() === "") ||
+    values.title.trim() === "" ||
+    (layout.url && values.url.trim() === "") ||
     (fileSlug !== null && uploadedFile === null)
 
   function handleSubmit(event: React.FormEvent) {
@@ -87,13 +78,13 @@ export function CreateItemForm({
     startTransition(async () => {
       const result = await createItem({
         typeId,
-        title,
-        description,
-        content: showContent ? content : null,
-        language: showLanguage ? language : null,
-        url: showUrl ? url : null,
+        title: values.title,
+        description: values.description,
+        content: layout.content ? values.content : null,
+        language: layout.language ? values.language : null,
+        url: layout.url ? values.url : null,
         fileKey: fileSlug ? (uploadedFile?.key ?? null) : null,
-        tags: parseTagInput(tags),
+        tags: parseTagInput(values.tags),
       })
 
       if (!result.success) {
@@ -118,159 +109,38 @@ export function CreateItemForm({
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-1 pb-1">
-        <div className="space-y-1.5">
-          <Label
-            id="new-item-type-label"
-            className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
-          >
-            Type
-          </Label>
-          <div
-            role="radiogroup"
-            aria-labelledby="new-item-type-label"
-            className="flex flex-wrap gap-1.5"
-          >
-            {types.map((t) => {
-              const Icon = ICON_MAP[t.icon] ?? File
-              const selected = t.id === typeId
+        <TypeChips
+          types={types}
+          value={typeId}
+          onChange={setTypeId}
+          disabled={pending || uploading}
+        />
 
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  disabled={pending || uploading}
-                  onClick={() => setTypeId(t.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors",
-                    "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-                    "disabled:pointer-events-none disabled:opacity-50",
-                    selected
-                      ? "border-transparent"
-                      : "border-border text-muted-foreground hover:bg-muted/60"
-                  )}
-                  style={
-                    selected
-                      ? { color: t.color, backgroundColor: `${t.color}20` }
-                      : undefined
-                  }
-                >
-                  <Icon className="h-3 w-3" />
-                  {t.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <Field label="Title" htmlFor="new-item-title">
-          <Input
-            id="new-item-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={pending}
-            placeholder={`Name this ${type.name.toLowerCase()}`}
-            autoFocus
-          />
-        </Field>
-
-        <Field label="Description" htmlFor="new-item-description">
-          <Textarea
-            id="new-item-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={pending}
-            rows={2}
-            placeholder="Optional short description"
-          />
-        </Field>
-
-        {showContent && (
-          <Field label="Content" htmlFor={isCodeType ? undefined : "new-item-content"}>
-            {isCodeType ? (
-              <CodeEditor
-                ariaLabel="Content"
-                value={content}
-                // Live state, so retyping the language re-highlights immediately.
-                language={language}
-                fallbackLanguage={fallbackLanguageForSlug(type.slug)}
-                onChange={setContent}
-                disabled={pending}
-                minHeight={180}
-              />
-            ) : editor === "markdown" ? (
-              <MarkdownEditor
-                id="new-item-content"
-                value={content}
-                onChange={setContent}
-                disabled={pending}
-                minHeight={180}
-              />
-            ) : (
-              <Textarea
-                id="new-item-content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                disabled={pending}
-                rows={8}
-                className="max-h-72 font-mono text-xs leading-relaxed"
-              />
-            )}
-          </Field>
-        )}
-
-        {fileSlug && (
-          <Field label={fileSlug === "images" ? "Image" : "File"}>
-            <FileUpload
-              key={fileSlug}
-              slug={fileSlug}
-              value={uploadedFile}
-              onChange={(file) => setUpload(file ? { slug: fileSlug, file } : null)}
-              onUploadingChange={setUploading}
-              disabled={pending}
-            />
-          </Field>
-        )}
-
-        {showLanguage && (
-          <Field label="Language" htmlFor="new-item-language">
-            <Input
-              id="new-item-language"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              disabled={pending}
-              placeholder="typescript"
-            />
-          </Field>
-        )}
-
-        {showUrl && (
-          <Field label="URL" htmlFor="new-item-url">
-            <Input
-              id="new-item-url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={pending}
-              placeholder="https://example.com"
-            />
-          </Field>
-        )}
-
-        <Field
-          label="Tags"
-          htmlFor="new-item-tags"
-          hint="Comma-separated."
-        >
-          <Input
-            id="new-item-tags"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            disabled={pending}
-            placeholder="react, hooks, patterns"
-          />
-        </Field>
+        <ItemFields
+          idPrefix="new-item"
+          typeSlug={type.slug}
+          layout={layout}
+          values={values}
+          onChange={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
+          disabled={pending}
+          size="dialog"
+          titlePlaceholder={`Name this ${type.name.toLowerCase()}`}
+          tagsHint="Comma-separated."
+          fileField={
+            fileSlug && (
+              <Field label={fileSlug === "images" ? "Image" : "File"}>
+                <FileUpload
+                  key={fileSlug}
+                  slug={fileSlug}
+                  value={uploadedFile}
+                  onChange={(file) => setUpload(file ? { slug: fileSlug, file } : null)}
+                  onUploadingChange={setUploading}
+                  disabled={pending}
+                />
+              </Field>
+            )
+          }
+        />
 
         {error && (
           <p role="alert" className="text-sm text-destructive">
