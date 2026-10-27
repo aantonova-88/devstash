@@ -20,7 +20,8 @@ export async function GET(
     }
 
     return NextResponse.json({ item })
-  } catch {
+  } catch (err) {
+    console.error("load item failed", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

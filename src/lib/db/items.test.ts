@@ -8,13 +8,16 @@ const create = vi.fn()
 const groupBy = vi.fn()
 const itemTypeFindFirst = vi.fn()
 const itemTypeFindMany = vi.fn()
+const itemCount = vi.fn()
+const collectionCount = vi.fn()
 
 // items.ts imports the Prisma client at module scope; mocking it keeps the
 // suite hermetic and offline.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    item: { findFirst, findMany, update, delete: deleteFn, create, groupBy },
+    item: { findFirst, findMany, update, delete: deleteFn, create, groupBy, count: itemCount },
     itemType: { findFirst: itemTypeFindFirst, findMany: itemTypeFindMany },
+    collection: { count: collectionCount },
   },
 }))
 
@@ -27,6 +30,7 @@ const {
   getSystemItemTypes,
   getItemFile,
   getItemsByType,
+  getProfileStats,
 } = await import("@/lib/db/items")
 
 const TYPE = {
@@ -691,5 +695,42 @@ describe("getItemsByType (card serialization)", () => {
     expect(item.lastUsedAt).toBeNull()
     expect(item.createdAt).toBe("2026-05-01T09:00:00.000Z")
     expect(item.updatedAt).toBe("2026-05-02T09:00:00.000Z")
+  })
+})
+
+describe("getProfileStats", () => {
+  const TYPE_ROWS = [
+    { id: "t_snip", name: "Snippet", slug: "snippets", icon: "Code", color: "#3b82f6", category: "TEXT", order: 0 },
+    { id: "t_file", name: "File", slug: "files", icon: "File", color: "#6b7280", category: "FILE", order: 4 },
+  ]
+
+  beforeEach(() => {
+    itemTypeFindMany.mockReset().mockResolvedValue(TYPE_ROWS)
+    groupBy.mockReset().mockResolvedValue([{ typeId: "t_snip", _count: 4 }])
+    itemCount.mockReset().mockResolvedValue(4)
+    collectionCount.mockReset().mockResolvedValue(2)
+  })
+
+  it("scopes both totals to the user", async () => {
+    await getProfileStats("user_profile_1")
+
+    expect(itemCount).toHaveBeenCalledWith({ where: { userId: "user_profile_1" } })
+    expect(collectionCount).toHaveBeenCalledWith({ where: { userId: "user_profile_1" } })
+  })
+
+  it("builds the breakdown from the system types with per-user counts", async () => {
+    const stats = await getProfileStats("user_profile_2")
+
+    expect(groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "user_profile_2" } }),
+    )
+    expect(stats).toEqual({
+      totalItems: 4,
+      totalCollections: 2,
+      typeBreakdown: [
+        { id: "t_snip", name: "Snippet", slug: "snippets", icon: "Code", color: "#3b82f6", count: 4 },
+        { id: "t_file", name: "File", slug: "files", icon: "File", color: "#6b7280", count: 0 },
+      ],
+    })
   })
 })

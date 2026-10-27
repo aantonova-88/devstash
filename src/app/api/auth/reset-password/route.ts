@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
 import { consumePasswordResetToken } from "@/lib/password-reset"
 import {
   checkRateLimit,
@@ -35,8 +34,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const hashed = await bcrypt.hash(password, 12)
-    const result = await consumePasswordResetToken(token, hashed)
+    const result = await consumePasswordResetToken(token, password)
 
     if (!result.ok) {
       const message =
@@ -47,7 +45,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true })
-  } catch {
+  } catch (err) {
+    console.error("reset password failed", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

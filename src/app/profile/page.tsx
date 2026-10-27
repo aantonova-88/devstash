@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation"
 import { Package, FolderOpen, Mail, Calendar, File } from "lucide-react"
 import { auth } from "@/auth"
-import { prisma } from "@/lib/prisma"
 import { getProfileStats } from "@/lib/db/items"
+import { getProfileUser } from "@/lib/db/users"
 import { ICON_MAP } from "@/lib/icons"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { ChangePasswordCard } from "@/components/profile/ChangePasswordCard"
@@ -21,16 +21,13 @@ export default async function ProfilePage() {
   const userId = session.user.id
 
   const [user, stats] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, name: true, email: true, image: true, password: true, createdAt: true },
-    }),
+    getProfileUser(userId),
     getProfileStats(userId),
   ])
 
   if (!user) redirect("/sign-in")
 
-  const hasPassword = user.password !== null
+  const { hasPassword } = user
 
   return (
     <main className="flex-1 overflow-auto p-6 space-y-8">

@@ -30,6 +30,15 @@ export interface SidebarUser {
   image?: string | null
 }
 
+function sidebarLinkClasses(isActive: boolean, collapsed: boolean) {
+  return cn(
+    "flex items-center gap-2.5 rounded-md h-8 text-sm transition-colors select-none",
+    "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+    isActive && "bg-sidebar-accent text-sidebar-foreground font-medium",
+    collapsed ? "justify-center w-8 mx-auto" : "px-2 w-full"
+  )
+}
+
 // ── Nav Item ────────────────────────────────────────────
 
 interface NavItemProps {
@@ -46,12 +55,7 @@ function NavItem({ href, icon: Icon, label, iconColor, count, badge, collapsed }
   const pathname = usePathname()
   const isActive = pathname === href
 
-  const linkClasses = cn(
-    "flex items-center gap-2.5 rounded-md h-8 text-sm transition-colors select-none",
-    "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-    isActive && "bg-sidebar-accent text-sidebar-foreground font-medium",
-    collapsed ? "justify-center w-8 mx-auto" : "px-2 w-full"
-  )
+  const linkClasses = sidebarLinkClasses(isActive, collapsed)
 
   if (collapsed) {
     return (
@@ -104,12 +108,7 @@ function CollectionItem({ id, name, color, count, isFavorite, collapsed }: Colle
   const href = `/collections/${id}`
   const isActive = pathname === href
 
-  const linkClasses = cn(
-    "flex items-center gap-2.5 rounded-md h-8 text-sm transition-colors select-none",
-    "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-    isActive && "bg-sidebar-accent text-sidebar-foreground font-medium",
-    collapsed ? "justify-center w-8 mx-auto" : "px-2 w-full"
-  )
+  const linkClasses = sidebarLinkClasses(isActive, collapsed)
 
   const indicator = isFavorite ? (
     <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />

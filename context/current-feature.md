@@ -2,15 +2,25 @@
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+Fix branch `fix/audit-low-risk-cleanups` — the low-risk quick wins left over from the code-scanner audit:
+
+1. **Log swallowed errors** — the seven API routes with a bare `catch {}` log the error; `GET /api/auth/verify-email` gets a try/catch and redirects to `/sign-in?verify=error`, which `SignInForm` toasts.
+2. **Profile page hash fetch** — the page queries Prisma directly and selects the bcrypt hash only to derive `hasPassword`. Move to `getProfileUser(userId)` in `src/lib/db/users.ts`, returning `hasPassword` instead of the hash.
+3. **MarkdownEditor a11y** — the read-only preview `div` carries `aria-label` without a role; add `role="region"`.
+4. **Sidebar `linkClasses`** — identical `cn(...)` in `NavItem` and `CollectionItem`; extract one helper.
+5. **Clipboard helper** — the write + success/error toast is repeated in `ItemCard`, `CodeEditor`, `MarkdownEditor` and `ItemDrawer`; extract `copyToClipboard()` in `src/lib/clipboard.ts`.
+6. **Reset-password hashes before validating the token** — validate the token first, hash only for a valid one.
+7. **`getProfileStats` duplicate queries** — reuse the `cache()`-wrapped `getSystemItemTypes()` the profile layout already ran.
+8. **`ItemCollection(collectionId)` index** — migration applied to the **development** branch only.
+9. **Upload without `Content-Length`** — reject with 411 instead of buffering an unbounded body.
 
 ## Notes
 
-None
+- Never run anything against production; `next start` loads `.env.production`, so browser checks use the dev server.
 
 ## History
 

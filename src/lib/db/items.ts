@@ -217,33 +217,25 @@ export interface ProfileStats {
   }>
 }
 
+// The per-type breakdown reuses `getSystemItemTypes`, which the profile layout
+// has already run (cached) for the sidebar in the same request.
 export async function getProfileStats(userId: string): Promise<ProfileStats> {
-  const [totalItems, totalCollections, types, counts] = await Promise.all([
+  const [totalItems, totalCollections, types] = await Promise.all([
     prisma.item.count({ where: { userId } }),
     prisma.collection.count({ where: { userId } }),
-    prisma.itemType.findMany({
-      where: { isSystem: true },
-      orderBy: { order: "asc" },
-    }),
-    prisma.item.groupBy({
-      by: ["typeId"],
-      where: { userId },
-      _count: true,
-    }),
+    getSystemItemTypes(userId),
   ])
-
-  const countMap = new Map(counts.map((c) => [c.typeId, c._count]))
 
   return {
     totalItems,
     totalCollections,
-    typeBreakdown: types.map((t) => ({
-      id: t.id,
-      name: t.name,
-      slug: t.slug,
-      icon: t.icon,
-      color: t.color,
-      count: countMap.get(t.id) ?? 0,
+    typeBreakdown: types.map(({ id, name, slug, icon, color, count }) => ({
+      id,
+      name,
+      slug,
+      icon,
+      color,
+      count,
     })),
   }
 }
