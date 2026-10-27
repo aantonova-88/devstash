@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const findFirst = vi.fn()
+const findMany = vi.fn()
 const update = vi.fn()
 const deleteFn = vi.fn()
 const create = vi.fn()
@@ -12,7 +13,7 @@ const itemTypeFindMany = vi.fn()
 // suite hermetic and offline.
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    item: { findFirst, update, delete: deleteFn, create, groupBy },
+    item: { findFirst, findMany, update, delete: deleteFn, create, groupBy },
     itemType: { findFirst: itemTypeFindFirst, findMany: itemTypeFindMany },
   },
 }))
@@ -25,6 +26,7 @@ const {
   getSystemItemTypeById,
   getSystemItemTypes,
   getItemFile,
+  getItemsByType,
 } = await import("@/lib/db/items")
 
 const TYPE = {
@@ -66,6 +68,7 @@ function itemRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   findFirst.mockReset()
+  findMany.mockReset()
   update.mockReset()
   deleteFn.mockReset()
   create.mockReset()
@@ -578,5 +581,93 @@ describe("getItemFile", () => {
     findFirst.mockResolvedValue({ fileUrl: null, fileName: null })
 
     await expect(getItemFile("user_1", "item_1")).resolves.toBeNull()
+  })
+})
+
+describe("getItemsByType (card serialization)", () => {
+  const IMAGE_TYPE = { name: "Image", slug: "images", icon: "Image", color: "#ec4899" }
+
+  // What Prisma actually returns for the card include: every scalar column
+  // plus join rows that carry their own foreign keys.
+  function cardRow(overrides: Record<string, unknown> = {}) {
+    return {
+      ...itemRow(),
+      userId: "user_1",
+      typeId: "type_1",
+      type: { name: TYPE.name, slug: TYPE.slug, icon: TYPE.icon, color: TYPE.color },
+      tags: [{ itemId: "item_1", tagId: "tag_1", tag: { name: "react" } }],
+      ...overrides,
+    }
+  }
+
+  it("scopes the query to the user and type and selects the type slug", async () => {
+    findMany.mockResolvedValue([])
+
+    await getItemsByType("user_1", "type_1")
+
+    const args = findMany.mock.calls[0][0]
+    expect(args.where).toEqual({ userId: "user_1", typeId: "type_1" })
+    expect(args.include.type.select).toEqual({
+      name: true,
+      slug: true,
+      icon: true,
+      color: true,
+    })
+  })
+
+  it("maps a stored file to the proxy URL, never the R2 key", async () => {
+    findMany.mockResolvedValue([
+      cardRow({ type: IMAGE_TYPE, fileUrl: "user_1/images/abc.png", fileName: "a.png" }),
+    ])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(item.fileUrl).toBe("/api/items/item_1/file")
+    expect(JSON.stringify(item)).not.toContain("user_1/images/abc.png")
+  })
+
+  it("returns a null fileUrl for items without a file", async () => {
+    findMany.mockResolvedValue([cardRow()])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(item.fileUrl).toBeNull()
+  })
+
+  it("does not pass private or unused columns through to the client", async () => {
+    findMany.mockResolvedValue([
+      cardRow({ type: IMAGE_TYPE, fileUrl: "user_1/images/abc.png", fileSize: 42 }),
+    ])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(Object.keys(item).sort()).toEqual(
+      [
+        "content",
+        "createdAt",
+        "fileUrl",
+        "id",
+        "isFavorite",
+        "isPinned",
+        "language",
+        "lastUsedAt",
+        "tags",
+        "title",
+        "type",
+        "updatedAt",
+      ].sort()
+    )
+    expect(item.tags).toEqual([{ tag: { name: "react" } }])
+    expect(JSON.stringify(item)).not.toContain("user_1")
+  })
+
+  it("serializes dates to ISO strings and keeps a null lastUsedAt", async () => {
+    findMany.mockResolvedValue([cardRow({ lastUsedAt: null })])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(item.lastUsedAt).toBeNull()
+    expect(item.createdAt).toBe("2026-05-01T09:00:00.000Z")
+    expect(item.updatedAt).toBe("2026-05-02T09:00:00.000Z")
   })
 })

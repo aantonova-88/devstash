@@ -1,16 +1,27 @@
-# Current Feature
+# Current Feature: Image Gallery View
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Image items render as a thumbnail card instead of the regular `ItemCard`
+- `/items/images` shows an image grid/gallery with 3 columns
+- Thumbnail uses a 16:9 aspect ratio (`aspect-video`)
+- Thumbnail uses `object-cover` to fill the card (edges may crop)
+- Subtle hover zoom on the thumbnail (`scale-105`, 300ms transition)
+- Clicking a thumbnail card still opens the item drawer
 
 ## Notes
 
-None
+- Spec: `context/features/image-display-spec.md`
+- Cards currently get `ItemWithMeta`, which has no file fields — the thumbnail needs a URL. Use the existing ownership-scoped proxy `/api/items/<id>/file` (images are served inline), mapped server-side the same way `serializeItemDetail` does; the R2 key must never reach the client.
+- **Existing leak to fix here:** `serializeItem` in `src/lib/db/items.ts` spreads `...item` from `findMany` with `include`, so every scalar column — including `fileUrl` (the private R2 key) and `userId` — ends up in the RSC payload passed to the client `ItemGrid`, despite the TypeScript type hiding it. Build the returned object explicitly instead of spreading.
+- Render the image with `next/image` `unoptimized` (as the drawer does) — the optimizer can't call the proxy with the user's session.
+- `ItemGrid` already uses `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`; the 3-column requirement is met at `lg`, keep the responsive fallbacks.
+- Decided at `start` (no answer given, default taken): the swap happens in `ItemGrid`, so image items get the thumbnail card everywhere it renders, dashboard pinned/recent included. Image items without a stored file fall back to `ItemCard`.
+- Thumbnail card must keep `ItemCard`'s keyboard behaviour (`role="button"`, `tabIndex`, Enter/Space) and the type-color left border convention.
 
 ## History
 

@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { File } from "lucide-react"
 import { ICON_MAP } from "@/lib/icons"
+import { ImageCard } from "@/components/dashboard/ImageCard"
 import { ItemCard } from "@/components/dashboard/ItemCard"
 import { ItemDrawer } from "@/components/items/ItemDrawer"
 import type { ItemWithMeta } from "@/lib/db/items"
@@ -31,14 +32,21 @@ export function ItemGrid({
   return (
     <>
       <div className={className}>
-        {items.map((item) => (
-          <ItemCard
-            key={item.id}
-            item={item}
-            icon={ICON_MAP[item.type.icon] ?? File}
-            onSelect={() => select(item.id)}
-          />
-        ))}
+        {items.map((item) => {
+          const icon = ICON_MAP[item.type.icon] ?? File
+          const onSelect = () => select(item.id)
+
+          return item.type.slug === "images" && item.fileUrl ? (
+            <ImageCard
+              key={item.id}
+              item={{ ...item, fileUrl: item.fileUrl }}
+              icon={icon}
+              onSelect={onSelect}
+            />
+          ) : (
+            <ItemCard key={item.id} item={item} icon={icon} onSelect={onSelect} />
+          )
+        })}
       </div>
 
       {/* selectedId is kept on close so the drawer doesn't blank mid-animation */}
