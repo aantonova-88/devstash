@@ -21,7 +21,9 @@ export interface ItemWithMeta {
   lastUsedAt: string | null
   createdAt: string
   updatedAt: string
-  type: { name: string; icon: string; color: string }
+  /** Proxy URL (`/api/items/<id>/file`), never the R2 key; null when no file. */
+  fileUrl: string | null
+  type: { name: string; slug: string; icon: string; color: string }
   tags: { tag: { name: string } }[]
 }
 
@@ -30,34 +32,41 @@ export interface ItemStats {
   favoriteItemsCount: number
 }
 
-function serializeItem(item: {
-  id: string
-  title: string
-  content: string | null
-  language: string | null
-  isFavorite: boolean
-  isPinned: boolean
-  lastUsedAt: Date | null
-  createdAt: Date
-  updatedAt: Date
-  type: { name: string; icon: string; color: string }
-  tags: { tag: { name: string } }[]
-}): ItemWithMeta {
+const itemCardInclude = {
+  type: { select: { name: true, slug: true, icon: true, color: true } },
+  tags: { include: { tag: { select: { name: true } } } },
+} as const
+
+type ItemCardRow = Awaited<
+  ReturnType<typeof prisma.item.findFirstOrThrow<{ include: typeof itemCardInclude }>>
+>
+
+/**
+ * Fields are picked explicitly rather than spread: the row carries every
+ * column, including `fileUrl` (the private R2 key) and `userId`, and whatever
+ * is returned here is serialized into the client component's props.
+ */
+function serializeItem(item: ItemCardRow): ItemWithMeta {
   return {
-    ...item,
+    id: item.id,
+    title: item.title,
+    content: item.content,
+    language: item.language,
+    isFavorite: item.isFavorite,
+    isPinned: item.isPinned,
     lastUsedAt: item.lastUsedAt?.toISOString() ?? null,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
+    fileUrl: item.fileUrl ? itemFileUrl(item.id) : null,
+    type: item.type,
+    tags: item.tags.map(({ tag }) => ({ tag: { name: tag.name } })),
   }
 }
 
 export async function getPinnedItems(userId: string): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId, isPinned: true },
-    include: {
-      type: { select: { name: true, icon: true, color: true } },
-      tags: { include: { tag: { select: { name: true } } } },
-    },
+    include: itemCardInclude,
     orderBy: { updatedAt: "desc" },
   })
 
@@ -67,10 +76,7 @@ export async function getPinnedItems(userId: string): Promise<ItemWithMeta[]> {
 export async function getRecentItems(userId: string, limit = 10): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId },
-    include: {
-      type: { select: { name: true, icon: true, color: true } },
-      tags: { include: { tag: { select: { name: true } } } },
-    },
+    include: itemCardInclude,
     orderBy: [
       { lastUsedAt: { sort: "desc", nulls: "last" } },
       { updatedAt: "desc" },
@@ -172,10 +178,7 @@ export async function getItemsByType(
 ): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId, typeId },
-    include: {
-      type: { select: { name: true, icon: true, color: true } },
-      tags: { include: { tag: { select: { name: true } } } },
-    },
+    include: itemCardInclude,
     orderBy: [
       { isPinned: "desc" },
       { lastUsedAt: { sort: "desc", nulls: "last" } },
