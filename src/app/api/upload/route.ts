@@ -30,9 +30,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Reject oversized bodies before buffering them. The real size is checked
-    // again below, since Content-Length can be absent or wrong.
-    const declared = Number(request.headers.get("content-length"))
+    // Reject oversized bodies before buffering them. A missing Content-Length
+    // (chunked upload) would let formData() buffer an unbounded body, so the
+    // header is required; browsers always send it for FormData. The real file
+    // size is checked again below, since the header can still be wrong.
+    const declaredHeader = request.headers.get("content-length")
+    const declared = Number(declaredHeader)
+    if (declaredHeader === null || !Number.isFinite(declared) || declared <= 0) {
+      return NextResponse.json({ error: "Content-Length is required." }, { status: 411 })
+    }
     if (declared > MAX_REQUEST_BYTES) {
       return NextResponse.json({ error: "File is too large." }, { status: 413 })
     }

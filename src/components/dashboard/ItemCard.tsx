@@ -1,9 +1,9 @@
 "use client"
 
 import { Copy, type LucideIcon } from "lucide-react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { cn, relativeTime } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/clipboard"
 
 interface ItemCardProps {
   item: {
@@ -101,12 +101,7 @@ export function ItemCard({ item, icon: Icon, onSelect }: ItemCardProps) {
 function CopyButton({ value, title }: { value: string; title: string }) {
   async function copy(e: React.MouseEvent) {
     e.stopPropagation()
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success("Copied to clipboard")
-    } catch {
-      toast.error("Could not copy to clipboard")
-    }
+    await copyToClipboard(value)
   }
 
   return (

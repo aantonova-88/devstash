@@ -65,6 +65,12 @@ export function SignInForm() {
         duration: 6000,
       })
       router.replace("/sign-in", { scroll: false })
+    } else if (verify === "error") {
+      toast.error("We couldn't verify your email right now. Please try the link again.", {
+        id: "verify-error",
+        duration: 6000,
+      })
+      router.replace("/sign-in", { scroll: false })
     }
   }, [])
 

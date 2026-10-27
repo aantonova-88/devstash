@@ -88,7 +88,8 @@ export async function POST(request: Request) {
       { success: true, user, verificationRequired: verificationEnabled },
       { status: 201 }
     )
-  } catch {
+  } catch (err) {
+    console.error("register failed", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

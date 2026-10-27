@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto"
+import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetEmail } from "@/lib/email"
 
@@ -34,9 +35,11 @@ type ConsumeResult =
   | { ok: true }
   | { ok: false; reason: "invalid" | "expired" }
 
+// The new password is hashed only after the token has been validated, so a
+// guessed or expired token never costs a bcrypt round.
 export async function consumePasswordResetToken(
   token: string,
-  newPasswordHash: string,
+  newPassword: string,
 ): Promise<ConsumeResult> {
   const record = await prisma.verificationToken.findUnique({ where: { token } })
   if (!record || !record.identifier.startsWith(IDENTIFIER_PREFIX)) {
@@ -49,6 +52,7 @@ export async function consumePasswordResetToken(
   }
 
   const email = record.identifier.slice(IDENTIFIER_PREFIX.length)
+  const newPasswordHash = await bcrypt.hash(newPassword, 12)
 
   try {
     await prisma.$transaction([

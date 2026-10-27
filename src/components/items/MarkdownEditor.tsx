@@ -3,11 +3,11 @@
 import { useId, useState } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { toast } from "sonner"
 import { Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CODE_EDITOR_MAX_HEIGHT } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/clipboard"
 
 type Tab = "write" | "preview"
 
@@ -65,13 +65,7 @@ export function MarkdownEditor({
 
   async function copy() {
     if (!value) return
-
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success("Copied to clipboard")
-    } catch {
-      toast.error("Could not copy to clipboard")
-    }
+    await copyToClipboard(value)
   }
 
   return (
@@ -135,7 +129,11 @@ export function MarkdownEditor({
             style={{ minHeight, maxHeight: CODE_EDITOR_MAX_HEIGHT }}
           />
         ) : (
-          <div style={{ minHeight }} aria-label={readOnly ? ariaLabel : undefined}>
+          <div
+            style={{ minHeight }}
+            role={readOnly ? "region" : undefined}
+            aria-label={readOnly ? ariaLabel : undefined}
+          >
             {value.trim() ? (
               <div className="markdown-preview px-4 py-3">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>

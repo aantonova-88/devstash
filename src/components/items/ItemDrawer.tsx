@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import { toast } from "sonner"
 import {
   Copy,
   Download,
@@ -30,6 +29,7 @@ import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn, formatDate, formatFileSize, relativeTime } from "@/lib/utils"
 import { contentEditorFor } from "@/lib/validation/item"
 import type { ItemDetail } from "@/lib/db/items"
+import { copyToClipboard } from "@/lib/clipboard"
 
 interface ItemDrawerProps {
   itemId: string | null
@@ -115,13 +115,7 @@ function ItemDrawerBody({
     // files get a Download button instead.
     const value = item.content ?? item.url
     if (!value) return
-
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success("Copied to clipboard")
-    } catch {
-      toast.error("Could not copy to clipboard")
-    }
+    await copyToClipboard(value)
   }
 
   return (

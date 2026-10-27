@@ -1,11 +1,11 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { toast } from "sonner"
 import { Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CODE_EDITOR_MAX_HEIGHT, resolveMonacoLanguage } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/clipboard"
 
 /**
  * Monaco is ~1MB before any grammar loads, so it stays out of the initial
@@ -73,13 +73,7 @@ export function CodeEditor({
 
   async function copy() {
     if (!value) return
-
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success("Copied to clipboard")
-    } catch {
-      toast.error("Could not copy to clipboard")
-    }
+    await copyToClipboard(value)
   }
 
   return (
