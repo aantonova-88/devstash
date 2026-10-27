@@ -62,7 +62,7 @@ export default async function ItemsByTypePage({
           </p>
         </div>
       ) : (
-        <ItemGrid items={items} />
+        <ItemGrid items={items} layout={slug === "files" ? "list" : "grid"} />
       )}
     </main>
   )

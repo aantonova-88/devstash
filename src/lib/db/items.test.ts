@@ -626,6 +626,17 @@ describe("getItemsByType (card serialization)", () => {
     expect(JSON.stringify(item)).not.toContain("user_1/images/abc.png")
   })
 
+  it("passes the original file name and size through for list rows", async () => {
+    findMany.mockResolvedValue([
+      cardRow({ fileUrl: "user_1/files/abc.pdf", fileName: "spec.pdf", fileSize: 2048 }),
+    ])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(item.fileName).toBe("spec.pdf")
+    expect(item.fileSize).toBe(2048)
+  })
+
   it("returns a null fileUrl for items without a file", async () => {
     findMany.mockResolvedValue([cardRow()])
 
@@ -645,6 +656,8 @@ describe("getItemsByType (card serialization)", () => {
       [
         "content",
         "createdAt",
+        "fileName",
+        "fileSize",
         "fileUrl",
         "id",
         "isFavorite",

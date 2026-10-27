@@ -1,16 +1,29 @@
-# Current Feature
+# Current Feature: File List View
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- `/items/files` renders as a single-column list of rows (Google Drive / Dropbox style) instead of the grid of cards
+- Each row shows a file icon chosen by extension, the file name, the file size, the upload date and a download button
+- Rows highlight on hover
+- Clicking a row opens the existing `ItemDrawer`
+- The download button downloads the file directly and stops propagation, so it doesn't also open the drawer
+- On mobile the row's info stacks vertically
 
 ## Notes
 
-None
+- Spec: `context/features/file-display-spec.md`
+- `ItemGrid` (`src/components/items/ItemGrid.tsx`) already owns drawer state and swaps `ImageCard` in for images. The list view should reuse that drawer wiring instead of duplicating it, either as a `layout`/variant on `ItemGrid` or as a sibling `ItemList` sharing the same state pattern
+- `ItemWithMeta` has no `fileName` or `fileSize` yet, so `serializeItem` / `itemCardInclude` need both. Add them as explicit fields and don't go back to spreading: the Image Gallery slice fixed a leak where `...item` sent the R2 key to the client. Extend the key-set test in `src/lib/db/items.test.ts`
+- Downloads go through the existing ownership-checked proxy `/api/items/<id>/file?download=1`, which already sends an attachment `Content-Disposition`. The drawer's Download link is the precedent. Never link to R2 directly
+- Picking an icon by extension is a pure mapping, so it belongs in `src/lib` (next to `validation/file.ts`, which already knows the allowed extensions per slug) and gets unit tests. Use Lucide icons (`FileText`, `FileCode`, `FileJson`, etc.) with the generic `File` as fallback
+- Size uses the existing `formatFileSize()`; date uses `formatDate()` / `relativeTime()` from `src/lib/utils.ts`
+- Rows follow `ItemCard`'s accessibility pattern: `role="button"` + `tabIndex` + Enter/Space. The download control is a real `<a>`, so it must not sit inside a `<button>`
+- Scope is `/items/files` only. Dashboard grids keep showing file items as `ItemCard`
+- Known gap carried over: file items still have no Pro gate (`isProUser()` doesn't exist)
 
 ## History
 
