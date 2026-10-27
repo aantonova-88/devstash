@@ -15,6 +15,7 @@ export interface ItemWithMeta {
   id: string
   title: string
   content: string | null
+  url: string | null
   language: string | null
   isFavorite: boolean
   isPinned: boolean
@@ -53,6 +54,7 @@ function serializeItem(item: ItemCardRow): ItemWithMeta {
     id: item.id,
     title: item.title,
     content: item.content,
+    url: item.url,
     language: item.language,
     isFavorite: item.isFavorite,
     isPinned: item.isPinned,

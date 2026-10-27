@@ -637,6 +637,14 @@ describe("getItemsByType (card serialization)", () => {
     expect(item.fileSize).toBe(2048)
   })
 
+  it("passes a link's url through so the card can copy it", async () => {
+    findMany.mockResolvedValue([cardRow({ url: "https://example.com" })])
+
+    const [item] = await getItemsByType("user_1", "type_1")
+
+    expect(item.url).toBe("https://example.com")
+  })
+
   it("returns a null fileUrl for items without a file", async () => {
     findMany.mockResolvedValue([cardRow()])
 
@@ -668,6 +676,7 @@ describe("getItemsByType (card serialization)", () => {
         "title",
         "type",
         "updatedAt",
+        "url",
       ].sort()
     )
     expect(item.tags).toEqual([{ tag: { name: "react" } }])

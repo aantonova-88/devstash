@@ -1,12 +1,15 @@
 "use client"
 
-import { type LucideIcon } from "lucide-react"
+import { Copy, type LucideIcon } from "lucide-react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 import { cn, relativeTime } from "@/lib/utils"
 
 interface ItemCardProps {
   item: {
     title: string
     content?: string | null
+    url?: string | null
     language?: string | null
     type: { name: string; icon: string; color: string }
     tags: { tag: { name: string } }[]
@@ -30,6 +33,7 @@ function contentPreview(content: string) {
 
 export function ItemCard({ item, icon: Icon, onSelect }: ItemCardProps) {
   const preview = item.content ? contentPreview(item.content) : null
+  const copyValue = item.content || item.url
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (!onSelect) return
@@ -52,12 +56,15 @@ export function ItemCard({ item, icon: Icon, onSelect }: ItemCardProps) {
       onClick={onSelect}
       onKeyDown={handleKeyDown}
     >
-      <div
-        className="flex items-center gap-1.5 self-start text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded"
-        style={{ color: item.type.color, backgroundColor: `${item.type.color}20` }}
-      >
-        <Icon className="h-3 w-3" />
-        {item.type.name}
+      <div className="flex items-center justify-between gap-2">
+        <div
+          className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded"
+          style={{ color: item.type.color, backgroundColor: `${item.type.color}20` }}
+        >
+          <Icon className="h-3 w-3" />
+          {item.type.name}
+        </div>
+        {copyValue && <CopyButton value={copyValue} title={item.title} />}
       </div>
 
       <h3 className="text-sm font-semibold leading-tight">{item.title}</h3>
@@ -88,5 +95,31 @@ export function ItemCard({ item, icon: Icon, onSelect }: ItemCardProps) {
         </span>
       </div>
     </div>
+  )
+}
+
+function CopyButton({ value, title }: { value: string; title: string }) {
+  async function copy(e: React.MouseEvent) {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success("Copied to clipboard")
+    } catch {
+      toast.error("Could not copy to clipboard")
+    }
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      className="-my-1 text-muted-foreground hover:text-foreground"
+      aria-label={`Copy ${title}`}
+      onClick={copy}
+      // The card's Enter/Space handler would otherwise open the drawer.
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <Copy />
+    </Button>
   )
 }
