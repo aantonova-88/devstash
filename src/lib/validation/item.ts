@@ -28,6 +28,11 @@ const itemFields = {
     .array(z.string().trim().min(1, "Tags cannot be empty"))
     .max(20, "An item can have at most 20 tags")
     .default([]),
+  collectionIds: z
+    .array(z.string().trim().min(1, "Invalid collection"))
+    .max(100, "Too many collections")
+    .default([])
+    .transform((ids) => [...new Set(ids)]),
 }
 
 export const updateItemSchema = z.object(itemFields)

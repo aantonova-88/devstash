@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { CodeEditor } from "@/components/items/CodeEditor"
 import { MarkdownEditor } from "@/components/items/MarkdownEditor"
 import { Field } from "@/components/items/Field"
+import { CollectionPicker } from "@/components/items/CollectionPicker"
 import { fallbackLanguageForSlug } from "@/lib/monaco"
 import { cn } from "@/lib/utils"
 import type { ContentEditorKind, ItemFormLayout } from "@/lib/validation/item"
@@ -16,6 +17,7 @@ export interface ItemFieldValues {
   language: string
   url: string
   tags: string
+  collectionIds: string[]
 }
 
 /** Content field sizing: the create dialog is shorter than the drawer. */
@@ -134,6 +136,13 @@ export function ItemFields({
           placeholder="react, hooks, patterns"
         />
       </Field>
+
+      <CollectionPicker
+        idPrefix={idPrefix}
+        value={values.collectionIds}
+        onChange={(collectionIds) => onChange({ collectionIds })}
+        disabled={disabled}
+      />
     </>
   )
 }

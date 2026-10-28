@@ -1,16 +1,30 @@
-# Current Feature
+# Current Feature: Add Items to Collections
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- The new-item dialog and the drawer's edit form both have a **Collections** input that lets the user pick zero, one or many of their own collections
+- Creating an item with collections selected writes the matching `ItemCollection` rows
+- Editing an item replaces its collection memberships with the selected set (adding and removing), and the form opens with the item's current collections preselected
+- Only collections owned by the session user can be attached; a crafted request naming another user's (or an unknown) collection id is rejected without writing anything
+- The drawer's view mode reflects the saved collections (the existing Collections metadata tile) without a refetch, and the sidebar / dashboard collection item counts update after save
+- Works for every item type, including File and Image
+- Usable at 1440px and 375px
 
 ## Notes
 
-None
+- Out of scope: collection pages (`/collections`, `/collections/[id]`), collection edit/delete, creating a collection from inside the item form
+- Validation: add `collectionIds` (array of non-empty strings, deduped, default `[]`) to the shared `itemFields` in `src/lib/validation/item.ts` so both `createItemSchema` and `updateItemSchema` get it
+- Ownership: the action (or query) must verify every id belongs to `session.user.id` before writing — e.g. `prisma.collection.count({ where: { id: { in: ids }, userId } })` must equal `ids.length`; foreign ids must not be distinguishable from unknown ones
+- Writes: create via nested `collections: { create: ids.map(...) }`; update via `deleteMany: {}` + `create`, mirroring how tags are replaced wholesale — consider preserving `addedAt` for memberships that stay (only delete removed, only create added) rather than resetting it
+- Data for the picker: the shell layouts already fetch `getRecentCollections(userId)` (React `cache()`-wrapped) for the sidebar; thread `{ id, name }` down to `CreateItemDialog` / the drawer the same way `itemTypes` reach `TopBar`, rather than adding a new fetch. Note `/items/[type]` pages also render a `CreateItemDialog`
+- `ItemDetail.collections` already exposes `{ id, name }[]`, so the edit form can preselect from it
+- UI: a multi-select fitting the existing form style (shadcn `Popover` + checkbox list, or toggle chips like `TypeChips`); render in `ItemFields` so both forms share it; empty state when the user has no collections
+- Revalidation: collection counts render in every shell layout's sidebar, so use `revalidatePath("/", "layout")` (as `createCollection` does) or add it alongside the existing per-page paths
+- Tests: schema (`collectionIds` default, dedupe, invalid entries), ownership check rejecting foreign ids, query write shapes for create and update (add, remove, clear), session user id reaching the ownership check
 
 ## History
 

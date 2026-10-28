@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 
 const findMany = vi.fn()
 const create = vi.fn()
+const count = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { collection: { findMany, create } },
+  prisma: { collection: { findMany, create, count } },
 }))
 
-const { getRecentCollections, createCollection } = await import("@/lib/db/collections")
+const { getRecentCollections, createCollection, ownsCollections } = await import(
+  "@/lib/db/collections"
+)
 
 const SNIPPET = { icon: "Code", color: "#3b82f6", name: "snippet" }
 const NOTE = { icon: "StickyNote", color: "#fde047", name: "note" }
@@ -26,6 +29,7 @@ function collection(id: string, types: Array<typeof SNIPPET>) {
 beforeEach(() => {
   findMany.mockReset()
   create.mockReset()
+  count.mockReset()
 })
 
 describe("getRecentCollections", () => {
@@ -100,5 +104,34 @@ describe("createCollection", () => {
     await expect(
       createCollection("user-1", { name: "Docs", description: null })
     ).rejects.toThrow("connection lost")
+  })
+})
+
+describe("ownsCollections", () => {
+  it("counts only the user's own collections among the ids", async () => {
+    count.mockResolvedValue(2)
+
+    await ownsCollections("user_1", ["col_1", "col_2"])
+
+    expect(count).toHaveBeenCalledWith({
+      where: { id: { in: ["col_1", "col_2"] }, userId: "user_1" },
+    })
+  })
+
+  it("is true when every id is owned", async () => {
+    count.mockResolvedValue(2)
+
+    await expect(ownsCollections("user_1", ["col_1", "col_2"])).resolves.toBe(true)
+  })
+
+  it("is false when any id is foreign or unknown", async () => {
+    count.mockResolvedValue(1)
+
+    await expect(ownsCollections("user_1", ["col_1", "col_other"])).resolves.toBe(false)
+  })
+
+  it("is true for an empty list without querying", async () => {
+    await expect(ownsCollections("user_1", [])).resolves.toBe(true)
+    expect(count).not.toHaveBeenCalled()
   })
 })

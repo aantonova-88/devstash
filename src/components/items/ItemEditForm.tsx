@@ -18,7 +18,7 @@ interface ItemEditFormProps {
 
 /**
  * Inline edit form for the item drawer. Controlled inputs with local state —
- * no form library, per the spec. Type, collections and dates are not editable
+ * no form library, per the spec. Type and dates are not editable
  * here; the drawer keeps showing them read-only.
  */
 export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
@@ -33,6 +33,7 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
     language: item.language ?? "",
     url: item.url ?? "",
     tags: item.tags.map((t) => t.name).join(", "),
+    collectionIds: item.collections.map((c) => c.id),
   }))
 
   const layout = formLayoutForType(item.type)
@@ -50,6 +51,7 @@ export function ItemEditForm({ item, onCancel, onSaved }: ItemEditFormProps) {
         language: layout.language ? values.language : null,
         url: layout.url ? values.url : null,
         tags: parseTagInput(values.tags),
+        collectionIds: values.collectionIds,
       })
 
       if (!result.success) {

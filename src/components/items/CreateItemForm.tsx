@@ -30,6 +30,7 @@ const EMPTY_VALUES: ItemFieldValues = {
   language: "",
   url: "",
   tags: "",
+  collectionIds: [],
 }
 
 /**
@@ -85,6 +86,7 @@ export function CreateItemForm({
         url: layout.url ? values.url : null,
         fileKey: fileSlug ? (uploadedFile?.key ?? null) : null,
         tags: parseTagInput(values.tags),
+        collectionIds: values.collectionIds,
       })
 
       if (!result.success) {
