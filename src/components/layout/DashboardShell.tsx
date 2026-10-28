@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Sidebar, type SidebarUser } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
+import { CollectionOptionsProvider } from "@/components/collections/CollectionOptions"
 import type { SidebarItemType } from "@/lib/db/items"
 import type { CollectionWithMeta } from "@/lib/db/collections"
 
@@ -18,20 +19,22 @@ export function DashboardShell({ children, itemTypes, collections, user }: Dashb
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
-        mobileOpen={mobileSidebarOpen}
-        onMobileOpenChange={setMobileSidebarOpen}
-        itemTypes={itemTypes}
-        collections={collections}
-        user={user}
-      />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopBar itemTypes={itemTypes} onMobileMenuClick={() => setMobileSidebarOpen(true)} />
-        {children}
+    <CollectionOptionsProvider collections={collections}>
+      <div className="flex h-full overflow-hidden">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          mobileOpen={mobileSidebarOpen}
+          onMobileOpenChange={setMobileSidebarOpen}
+          itemTypes={itemTypes}
+          collections={collections}
+          user={user}
+        />
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+          <TopBar itemTypes={itemTypes} onMobileMenuClick={() => setMobileSidebarOpen(true)} />
+          {children}
+        </div>
       </div>
-    </div>
+    </CollectionOptionsProvider>
   )
 }

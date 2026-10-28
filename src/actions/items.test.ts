@@ -8,6 +8,7 @@ const getSystemItemTypeById = vi.fn()
 const revalidatePath = vi.fn()
 const deleteObject = vi.fn()
 const headObject = vi.fn()
+const ownsCollections = vi.fn()
 
 vi.mock("@/auth", () => ({ auth }))
 vi.mock("@/lib/db/items", () => ({
@@ -18,6 +19,7 @@ vi.mock("@/lib/db/items", () => ({
 }))
 vi.mock("next/cache", () => ({ revalidatePath }))
 vi.mock("@/lib/r2", () => ({ deleteObject, headObject }))
+vi.mock("@/lib/db/collections", () => ({ ownsCollections }))
 
 const { updateItem, deleteItem, createItem } = await import("@/actions/items")
 
@@ -28,6 +30,7 @@ const INPUT = {
   language: "typescript",
   url: null,
   tags: ["react", "hooks"],
+  collectionIds: ["col_1", "col_2"],
 }
 
 const ITEM = {
@@ -40,8 +43,10 @@ beforeEach(() => {
   auth.mockReset()
   updateItemQuery.mockReset()
   revalidatePath.mockReset()
+  ownsCollections.mockReset()
   auth.mockResolvedValue({ user: { id: "user_1" } })
   updateItemQuery.mockResolvedValue(ITEM)
+  ownsCollections.mockResolvedValue(true)
 })
 
 describe("updateItem", () => {
@@ -69,11 +74,38 @@ describe("updateItem", () => {
     expect(fields.description).toBeNull()
   })
 
-  it("revalidates the dashboard and the item's type page", async () => {
+  it("revalidates every shell layout, since sidebar collection counts may change", async () => {
     await updateItem("item_1", INPUT)
 
-    expect(revalidatePath).toHaveBeenCalledWith("/dashboard")
-    expect(revalidatePath).toHaveBeenCalledWith("/items/snippets")
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout")
+  })
+
+  describe("collections", () => {
+    it("checks the deduplicated ids against the session user", async () => {
+      await updateItem("item_1", { ...INPUT, collectionIds: ["col_1", " col_1 ", "col_2"] })
+
+      expect(ownsCollections).toHaveBeenCalledWith("user_1", ["col_1", "col_2"])
+      expect(updateItemQuery.mock.calls[0][2].collectionIds).toEqual(["col_1", "col_2"])
+    })
+
+    it("defaults to no collections when none are sent", async () => {
+      await updateItem("item_1", { ...INPUT, collectionIds: undefined })
+
+      expect(updateItemQuery.mock.calls[0][2].collectionIds).toEqual([])
+    })
+
+    it("rejects collections the user does not own, without writing", async () => {
+      ownsCollections.mockResolvedValue(false)
+
+      const result = await updateItem("item_1", INPUT)
+
+      expect(result).toEqual({
+        success: false,
+        error: "One or more collections could not be found.",
+      })
+      expect(updateItemQuery).not.toHaveBeenCalled()
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
   })
 
   describe("authentication", () => {
@@ -340,6 +372,7 @@ const CREATE_INPUT = {
   language: "typescript",
   url: null,
   tags: ["react"],
+  collectionIds: ["col_1"],
 }
 
 const CREATED = { id: "item_9", title: "useDebounce hook", type: SNIPPET_TYPE }
@@ -550,19 +583,30 @@ describe("createItem", () => {
     })
   })
 
-  it("revalidates the dashboard and the resolved type's listing", async () => {
+  it("revalidates every shell layout, since sidebar collection counts may change", async () => {
     await createItem(CREATE_INPUT)
 
-    expect(revalidatePath).toHaveBeenCalledWith("/dashboard")
-    expect(revalidatePath).toHaveBeenCalledWith("/items/snippets")
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout")
   })
 
-  it("revalidates the slug the database returned rather than one derived locally", async () => {
-    getSystemItemTypeById.mockResolvedValue({ ...SNIPPET_TYPE, slug: "renamed-slug" })
+  it("attaches the parsed collection ids after checking them against the session user", async () => {
+    await createItem({ ...CREATE_INPUT, collectionIds: ["col_1", "col_1", "col_2"] })
 
-    await createItem(CREATE_INPUT)
+    expect(ownsCollections).toHaveBeenCalledWith("user_1", ["col_1", "col_2"])
+    expect(createItemQuery.mock.calls[0][1].collectionIds).toEqual(["col_1", "col_2"])
+  })
 
-    expect(revalidatePath).toHaveBeenCalledWith("/items/renamed-slug")
+  it("rejects collections the user does not own, without writing", async () => {
+    ownsCollections.mockResolvedValue(false)
+
+    const result = await createItem({ ...CREATE_INPUT, collectionIds: ["col_someone_elses"] })
+
+    expect(result).toEqual({
+      success: false,
+      error: "One or more collections could not be found.",
+    })
+    expect(createItemQuery).not.toHaveBeenCalled()
+    expect(revalidatePath).not.toHaveBeenCalled()
   })
 
   it.each([

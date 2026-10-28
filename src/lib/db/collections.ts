@@ -98,3 +98,18 @@ export async function createCollection(
     select: { id: true, name: true, description: true },
   })
 }
+
+/**
+ * Whether every id names a collection owned by `userId`. Ids must already be
+ * deduplicated. A foreign id and an unknown id both make this false, so the
+ * caller cannot tell which it was.
+ */
+export async function ownsCollections(userId: string, ids: string[]): Promise<boolean> {
+  if (ids.length === 0) return true
+
+  const owned = await prisma.collection.count({
+    where: { id: { in: ids }, userId },
+  })
+
+  return owned === ids.length
+}

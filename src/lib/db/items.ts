@@ -347,23 +347,27 @@ export interface UpdateItemFields {
   language: string | null
   url: string | null
   tags: string[]
+  /** Must already be verified as owned by the same user. */
+  collectionIds: string[]
 }
 
 /**
- * Update one item and replace its tag set.
+ * Update one item and replace its tag set and collection memberships.
  *
  * The `userId` in the `where` clause is the ownership check: Prisma throws
  * P2025 when no row matches, so another user's id behaves exactly like an
  * unknown one and this returns null. Tags are replaced wholesale — the join
  * rows are dropped and recreated, with `connectOrCreate` on `Tag` because
- * `Tag.name` is unique across all users.
+ * `Tag.name` is unique across all users. Collections are diffed instead:
+ * only removed memberships are deleted and kept ones are upserted unchanged,
+ * so their `addedAt` survives the edit.
  */
 export async function updateItem(
   userId: string,
   itemId: string,
   fields: UpdateItemFields
 ): Promise<ItemDetail | null> {
-  const { tags, ...scalars } = fields
+  const { tags, collectionIds, ...scalars } = fields
 
   try {
     const item = await prisma.item.update({
@@ -376,6 +380,14 @@ export async function updateItem(
             tag: {
               connectOrCreate: { where: { name }, create: { name } },
             },
+          })),
+        },
+        collections: {
+          deleteMany: { collectionId: { notIn: collectionIds } },
+          upsert: collectionIds.map((collectionId) => ({
+            where: { itemId_collectionId: { itemId, collectionId } },
+            create: { collection: { connect: { id: collectionId } } },
+            update: {},
           })),
         },
       },
@@ -445,10 +457,12 @@ export interface CreateItemFields {
   fileName: string | null
   fileSize: number | null
   tags: string[]
+  /** Must already be verified as owned by the same user. */
+  collectionIds: string[]
 }
 
 /**
- * Create one item for a user and attach its tag set.
+ * Create one item for a user and attach its tag set and collections.
  *
  * `userId` comes from the caller's session and `typeId` has already been
  * resolved against `ItemType`, so there is nothing here to authorise — a
@@ -459,7 +473,7 @@ export async function createItem(
   userId: string,
   fields: CreateItemFields
 ): Promise<ItemDetail> {
-  const { tags, ...scalars } = fields
+  const { tags, collectionIds, ...scalars } = fields
 
   const item = await prisma.item.create({
     data: {
@@ -470,6 +484,11 @@ export async function createItem(
           tag: {
             connectOrCreate: { where: { name }, create: { name } },
           },
+        })),
+      },
+      collections: {
+        create: collectionIds.map((collectionId) => ({
+          collection: { connect: { id: collectionId } },
         })),
       },
     },

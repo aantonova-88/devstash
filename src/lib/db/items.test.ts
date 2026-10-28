@@ -88,6 +88,7 @@ const FIELDS = {
   language: "typescript",
   url: null,
   tags: ["react", "hooks"],
+  collectionIds: ["col_1", "col_2"],
 }
 
 describe("getItemById", () => {
@@ -239,6 +240,54 @@ describe("updateItem", () => {
     expect(result?.tags).toEqual([])
   })
 
+  it("writes the collection ids only as join rows, not as a scalar", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    expect(update.mock.calls[0][0].data).not.toHaveProperty("collectionIds")
+  })
+
+  it("removes only the memberships that are no longer selected", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    expect(update.mock.calls[0][0].data.collections.deleteMany).toEqual({
+      collectionId: { notIn: ["col_1", "col_2"] },
+    })
+  })
+
+  it("upserts kept memberships unchanged so their addedAt survives", async () => {
+    update.mockResolvedValue(itemRow())
+
+    await updateItem("user_1", "item_1", FIELDS)
+
+    expect(update.mock.calls[0][0].data.collections.upsert).toEqual([
+      {
+        where: { itemId_collectionId: { itemId: "item_1", collectionId: "col_1" } },
+        create: { collection: { connect: { id: "col_1" } } },
+        update: {},
+      },
+      {
+        where: { itemId_collectionId: { itemId: "item_1", collectionId: "col_2" } },
+        create: { collection: { connect: { id: "col_2" } } },
+        update: {},
+      },
+    ])
+  })
+
+  it("removes every membership when no collections are selected", async () => {
+    update.mockResolvedValue(itemRow({ collections: [] }))
+
+    await updateItem("user_1", "item_1", { ...FIELDS, collectionIds: [] })
+
+    expect(update.mock.calls[0][0].data.collections).toEqual({
+      deleteMany: { collectionId: { notIn: [] } },
+      upsert: [],
+    })
+  })
+
   it("returns the updated item serialized as an ItemDetail", async () => {
     update.mockResolvedValue(itemRow({ title: "Renamed hook" }))
 
@@ -364,6 +413,7 @@ const CREATE_FIELDS = {
   fileName: null,
   fileSize: null,
   tags: ["react", "hooks"],
+  collectionIds: ["col_1"],
 }
 
 describe("createItem", () => {
@@ -415,6 +465,26 @@ describe("createItem", () => {
     await createItem("user_1", { ...CREATE_FIELDS, tags: [] })
 
     expect(create.mock.calls[0][0].data.tags).toEqual({ create: [] })
+  })
+
+  it("connects the given collections as join rows", async () => {
+    create.mockResolvedValue(itemRow())
+
+    await createItem("user_1", CREATE_FIELDS)
+
+    const { data } = create.mock.calls[0][0]
+    expect(data).not.toHaveProperty("collectionIds")
+    expect(data.collections).toEqual({
+      create: [{ collection: { connect: { id: "col_1" } } }],
+    })
+  })
+
+  it("creates no memberships when no collections are selected", async () => {
+    create.mockResolvedValue(itemRow())
+
+    await createItem("user_1", { ...CREATE_FIELDS, collectionIds: [] })
+
+    expect(create.mock.calls[0][0].data.collections).toEqual({ create: [] })
   })
 
   it("returns the created item serialized as an ItemDetail", async () => {

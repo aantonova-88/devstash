@@ -136,6 +136,30 @@ describe("updateItemSchema", () => {
       expect(result.success).toBe(true)
     })
   })
+
+  describe("collectionIds", () => {
+    it("trims and deduplicates ids, keeping first-seen order", () => {
+      const result = parse({ collectionIds: ["col_2", " col_1 ", "col_2", "col_1"] })
+      expect(result.success && result.data.collectionIds).toEqual(["col_2", "col_1"])
+    })
+
+    it("rejects a blank id", () => {
+      const result = parse({ collectionIds: ["col_1", "  "] })
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].message).toBe("Invalid collection")
+    })
+
+    it("rejects a non-string id", () => {
+      const result = parse({ collectionIds: [42] as never })
+      expect(result.success).toBe(false)
+    })
+
+    it("rejects more than 100 ids", () => {
+      const result = parse({ collectionIds: Array.from({ length: 101 }, (_, i) => `c${i}`) })
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0].message).toBe("Too many collections")
+    })
+  })
 })
 
 describe("parseTagInput", () => {
@@ -215,6 +239,12 @@ describe("createItemSchema", () => {
     // The action passes parsed.data.tags straight to the query, so the default
     // has to survive the spread into createItemSchema.
     expect(result.data?.tags).toEqual([])
+  })
+
+  it("defaults collectionIds to an empty list when the field is absent", () => {
+    const result = createItemSchema.safeParse({ typeId: "type_1", title: "No collections" })
+
+    expect(result.data?.collectionIds).toEqual([])
   })
 
   it("trims the title and normalises blank optional text to null", () => {

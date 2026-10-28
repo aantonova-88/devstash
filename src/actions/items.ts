@@ -8,6 +8,7 @@ import {
   getSystemItemTypeById,
   updateItem as updateItemQuery,
 } from "@/lib/db/items"
+import { ownsCollections } from "@/lib/db/collections"
 import { deleteObject, headObject } from "@/lib/r2"
 import {
   FILE_CONSTRAINTS,
@@ -26,6 +27,9 @@ import type { DeletedItem, ItemDetail } from "@/lib/db/items"
 export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string }
+
+/** Same message for a foreign and an unknown collection id. */
+const INVALID_COLLECTIONS = "One or more collections could not be found."
 
 /**
  * Update the editable fields of one item.
@@ -50,13 +54,17 @@ export async function updateItem(
       return { success: false, error: parsed.error.issues[0].message }
     }
 
+    if (!(await ownsCollections(session.user.id, parsed.data.collectionIds))) {
+      return { success: false, error: INVALID_COLLECTIONS }
+    }
+
     const item = await updateItemQuery(session.user.id, itemId, parsed.data)
     if (!item) {
       return { success: false, error: "Item not found" }
     }
 
-    revalidatePath("/dashboard")
-    revalidatePath(`/items/${item.type.slug}`)
+    // Layout-wide: collection item counts render in every shell's sidebar.
+    revalidatePath("/", "layout")
 
     return { success: true, data: item }
   } catch (err) {
@@ -132,6 +140,10 @@ export async function createItem(
       return { success: false, error: "Unknown item type" }
     }
 
+    if (!(await ownsCollections(session.user.id, parsed.data.collectionIds))) {
+      return { success: false, error: INVALID_COLLECTIONS }
+    }
+
     const content = contentFieldsForType(type, parsed.data)
     if (!content.ok) {
       return { success: false, error: content.error }
@@ -149,12 +161,13 @@ export async function createItem(
       title: parsed.data.title,
       description: parsed.data.description,
       tags: parsed.data.tags,
+      collectionIds: parsed.data.collectionIds,
       ...content.fields,
       ...file.fields,
     })
 
-    revalidatePath("/dashboard")
-    revalidatePath(`/items/${type.slug}`)
+    // Layout-wide: collection item counts render in every shell's sidebar.
+    revalidatePath("/", "layout")
 
     return { success: true, data: item }
   } catch (err) {
