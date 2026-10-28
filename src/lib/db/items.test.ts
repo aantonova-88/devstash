@@ -30,6 +30,7 @@ const {
   getSystemItemTypes,
   getItemFile,
   getItemsByType,
+  getItemsByCollection,
   getProfileStats,
 } = await import("@/lib/db/items")
 
@@ -802,5 +803,44 @@ describe("getProfileStats", () => {
         { id: "t_file", name: "File", slug: "files", icon: "File", color: "#6b7280", count: 0 },
       ],
     })
+  })
+})
+
+describe("getItemsByCollection", () => {
+  it("scopes to both the user and the collection, ordered like the type pages", async () => {
+    findMany.mockResolvedValue([])
+
+    await getItemsByCollection("user_1", "col_1")
+
+    const args = findMany.mock.calls[0][0]
+    expect(args.where).toEqual({
+      userId: "user_1",
+      collections: { some: { collectionId: "col_1" } },
+    })
+    expect(args.orderBy).toEqual([
+      { isPinned: "desc" },
+      { lastUsedAt: { sort: "desc", nulls: "last" } },
+      { updatedAt: "desc" },
+    ])
+  })
+
+  it("serializes cards without leaking the R2 key or user id", async () => {
+    findMany.mockResolvedValue([
+      {
+        ...itemRow({ fileUrl: "user_1/files/abc.pdf", fileName: "a.pdf" }),
+        userId: "user_1",
+        typeId: "type_1",
+        type: { name: TYPE.name, slug: TYPE.slug, icon: TYPE.icon, color: TYPE.color },
+        tags: [{ itemId: "item_1", tagId: "tag_1", tag: { name: "react" } }],
+      },
+    ])
+
+    const [item] = await getItemsByCollection("user_1", "col_1")
+
+    expect(item.fileUrl).toBe("/api/items/item_1/file")
+    expect(item.tags).toEqual([{ tag: { name: "react" } }])
+    const json = JSON.stringify(item)
+    expect(json).not.toContain("user_1/files/abc.pdf")
+    expect(json).not.toContain("userId")
   })
 })

@@ -1,16 +1,27 @@
-# Current Feature
+# Current Feature: Collections Pages
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- New `/collections` page listing all of the user's collections as the existing `CollectionCard`s, in the same `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` grid the dashboard uses, with a header (title + count) and an empty state
+- New `/collections/[id]` page showing one collection's name, description and item count, with its items rendered through the existing `ItemGrid` (so `ItemCard` / `ImageCard` / drawer all work unchanged), plus an empty state
+- `/collections/[id]` is scoped to the session user: an unknown id and another user's id both `notFound()` without leaking existence
+- Every `CollectionCard` (dashboard + `/collections`) links to `/collections/<id>`
+- Sidebar "View all collections" goes to `/collections` (already `href="/collections"` — currently 404s, so this works once the page exists); sidebar collection entries already link to `/collections/<id>`
+- Dashboard's "View all (N) →" collections button becomes a link to `/collections`
+- `/collections` added to the protected paths in `auth.config.ts`
+- Unit tests for any new `lib/db` query
 
 ## Notes
 
-None
+- **Data:** `/collections` can reuse `getRecentCollections(userId)` (React `cache()`-wrapped, already run by the shell layout — no extra query). `/collections/[id]` needs a new query in `src/lib/db/collections.ts`, e.g. `getCollectionById(userId, id)` (`findFirst({ where: { id, userId } })`) and items via the existing `itemCardInclude` / `serializeItem` in `src/lib/db/items.ts` (keep the no-spread rule so the R2 key never reaches the client). Order items like the type pages: `isPinned desc → lastUsedAt desc nulls last → updatedAt desc`
+- **Layout:** needs a `src/app/collections/layout.tsx` mirroring `items/layout.tsx` (auth + `DashboardShell`) — a fourth copy of the shell layout; the route-group refactor stays deferred
+- **CollectionCard:** currently a server-safe `div` with no `id` in its props; wrap/turn it into a `next/link` and add `id` to the props
+- Out of scope: editing/deleting/favouriting collections, removing items from a collection, pagination, sorting controls
+- Spec source: inline request (no spec file)
 
 ## History
 

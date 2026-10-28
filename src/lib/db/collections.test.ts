@@ -3,12 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const findMany = vi.fn()
 const create = vi.fn()
 const count = vi.fn()
+const findFirst = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { collection: { findMany, create, count } },
+  prisma: { collection: { findMany, create, count, findFirst } },
 }))
 
-const { getRecentCollections, createCollection, ownsCollections } = await import(
+const { getRecentCollections, createCollection, ownsCollections, getCollectionById } = await import(
   "@/lib/db/collections"
 )
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   findMany.mockReset()
   create.mockReset()
   count.mockReset()
+  findFirst.mockReset()
 })
 
 describe("getRecentCollections", () => {
@@ -133,5 +135,30 @@ describe("ownsCollections", () => {
   it("is true for an empty list without querying", async () => {
     await expect(ownsCollections("user_1", [])).resolves.toBe(true)
     expect(count).not.toHaveBeenCalled()
+  })
+})
+
+describe("getCollectionById", () => {
+  it("scopes the lookup to the user and selects only summary fields", async () => {
+    findFirst.mockResolvedValue(null)
+    await getCollectionById("user-1", "col-1")
+
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: "col-1", userId: "user-1" },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    })
+  })
+
+  it("returns the collection when owned", async () => {
+    const row = { id: "col-1", name: "React", description: null, isFavorite: true }
+    findFirst.mockResolvedValue(row)
+
+    expect(await getCollectionById("user-1", "col-1")).toEqual(row)
+  })
+
+  it("returns null for an unknown or foreign id", async () => {
+    findFirst.mockResolvedValue(null)
+
+    expect(await getCollectionById("user-1", "someone-elses")).toBeNull()
   })
 })
