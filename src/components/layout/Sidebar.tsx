@@ -342,10 +342,15 @@ function SidebarInner({
           </Tooltip>
         ) : (
           <>
-            <div className="h-7 w-7 rounded-md bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground text-[11px] font-bold shrink-0">
-              ds
-            </div>
-            <span className="flex-1 text-sm font-semibold tracking-tight">DevStash</span>
+            <Link
+              href="/dashboard"
+              className="flex flex-1 items-center gap-2.5 min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <div className="h-7 w-7 rounded-md bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground text-[11px] font-bold shrink-0">
+                ds
+              </div>
+              <span className="text-sm font-semibold tracking-tight">DevStash</span>
+            </Link>
             <button
               onClick={onToggleCollapse}
               className="h-6 w-6 flex items-center justify-center rounded text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
