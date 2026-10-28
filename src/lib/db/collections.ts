@@ -1,5 +1,6 @@
 import { cache } from "react"
 import { prisma } from "@/lib/prisma"
+import type { CreateCollectionData } from "@/lib/validation/collection"
 
 export interface CollectionWithMeta {
   id: string
@@ -76,3 +77,24 @@ export const getRecentCollections = cache(async (userId: string): Promise<Collec
     }
   })
 })
+
+export interface CreatedCollection {
+  id: string
+  name: string
+  description: string | null
+}
+
+/** Create an empty collection owned by `userId`. */
+export async function createCollection(
+  userId: string,
+  fields: CreateCollectionData
+): Promise<CreatedCollection> {
+  return prisma.collection.create({
+    data: {
+      userId,
+      name: fields.name,
+      description: fields.description,
+    },
+    select: { id: true, name: true, description: true },
+  })
+}
