@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Star, File } from "lucide-react"
 import { cn, relativeTime } from "@/lib/utils"
 import { ICON_MAP } from "@/lib/icons"
@@ -10,6 +11,7 @@ interface TypeIcon {
 
 interface CollectionCardProps {
   collection: {
+    id: string
     name: string
     description: string | null
     isFavorite: boolean
@@ -23,8 +25,9 @@ interface CollectionCardProps {
 
 export function CollectionCard({ collection }: CollectionCardProps) {
   return (
-    <div
-      className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors"
+    <Link
+      href={`/collections/${collection.id}`}
+      className="rounded-lg border border-border border-l-4 bg-card p-4 flex flex-col gap-3 hover:bg-card/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ borderLeftColor: collection.dominantColor }}
     >
       <div className="flex flex-col gap-1.5">
@@ -65,6 +68,6 @@ export function CollectionCard({ collection }: CollectionCardProps) {
           </p>
         )}
       </div>
-    </div>
+    </Link>
   )
 }

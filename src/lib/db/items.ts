@@ -195,6 +195,28 @@ export async function getItemsByType(
   return items.map(serializeItem)
 }
 
+/**
+ * Items in one collection, ordered like the type pages. Scoped by `userId`
+ * as well as the collection, so a foreign collection id yields nothing even if
+ * the caller skipped its own ownership check.
+ */
+export async function getItemsByCollection(
+  userId: string,
+  collectionId: string
+): Promise<ItemWithMeta[]> {
+  const items = await prisma.item.findMany({
+    where: { userId, collections: { some: { collectionId } } },
+    include: itemCardInclude,
+    orderBy: [
+      { isPinned: "desc" },
+      { lastUsedAt: { sort: "desc", nulls: "last" } },
+      { updatedAt: "desc" },
+    ],
+  })
+
+  return items.map(serializeItem)
+}
+
 export async function getItemStats(userId: string): Promise<ItemStats> {
   const [totalItems, favoriteItemsCount] = await Promise.all([
     prisma.item.count({ where: { userId } }),

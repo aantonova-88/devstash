@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import {
   Package,
@@ -94,9 +95,12 @@ export default async function DashboardPage() {
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold">Collections</h2>
           </div>
-          <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <Link
+            href="/collections"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
             View all ({totalCollections}) →
-          </button>
+          </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {collections.map((col) => (

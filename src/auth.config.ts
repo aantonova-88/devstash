@@ -36,7 +36,8 @@ export default {
       const isProtected =
         path.startsWith("/dashboard") ||
         path.startsWith("/profile") ||
-        path.startsWith("/items")
+        path.startsWith("/items") ||
+        path.startsWith("/collections")
 
       if (isProtected) {
         return isLoggedIn

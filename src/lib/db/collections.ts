@@ -78,6 +78,27 @@ export const getRecentCollections = cache(async (userId: string): Promise<Collec
   })
 })
 
+export interface CollectionSummary {
+  id: string
+  name: string
+  description: string | null
+  isFavorite: boolean
+}
+
+/**
+ * One collection owned by `userId`, or `null` — an unknown id and another
+ * user's id are indistinguishable.
+ */
+export async function getCollectionById(
+  userId: string,
+  collectionId: string
+): Promise<CollectionSummary | null> {
+  return prisma.collection.findFirst({
+    where: { id: collectionId, userId },
+    select: { id: true, name: true, description: true, isFavorite: true },
+  })
+}
+
 export interface CreatedCollection {
   id: string
   name: string
