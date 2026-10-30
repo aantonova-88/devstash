@@ -1,18 +1,21 @@
 "use client"
 
-import { Search, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { CreateCollectionDialog } from "@/components/collections/CreateCollectionDialog";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
-import type { SidebarItemType } from "@/lib/db/items";
+import type { SearchItem, SidebarItemType } from "@/lib/db/items";
+import type { CollectionWithMeta } from "@/lib/db/collections";
 
 interface TopBarProps {
   itemTypes: SidebarItemType[]
+  searchItems: SearchItem[]
+  collections: CollectionWithMeta[]
   onMobileMenuClick?: () => void
 }
 
-export function TopBar({ itemTypes, onMobileMenuClick }: TopBarProps) {
+export function TopBar({ itemTypes, searchItems, collections, onMobileMenuClick }: TopBarProps) {
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
       <div className="flex items-center gap-3">
@@ -27,15 +30,8 @@ export function TopBar({ itemTypes, onMobileMenuClick }: TopBarProps) {
         <span className="text-sm font-semibold tracking-tight">DevStash</span>
       </div>
 
-      <div className="flex-1 max-w-sm mx-8">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search snippets, prompts, commands..."
-            className="pl-8 h-8 text-sm bg-muted/40 border-border"
-            readOnly
-          />
-        </div>
+      <div className="flex-1 min-w-0 max-w-sm mx-8">
+        <GlobalSearch items={searchItems} collections={collections} />
       </div>
 
       <div className="flex items-center gap-2">

@@ -4,17 +4,24 @@ import { useState } from "react"
 import { Sidebar, type SidebarUser } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { CollectionOptionsProvider } from "@/components/collections/CollectionOptions"
-import type { SidebarItemType } from "@/lib/db/items"
+import type { SearchItem, SidebarItemType } from "@/lib/db/items"
 import type { CollectionWithMeta } from "@/lib/db/collections"
 
 interface DashboardShellProps {
   children: React.ReactNode
   itemTypes: SidebarItemType[]
   collections: CollectionWithMeta[]
+  searchItems: SearchItem[]
   user: SidebarUser
 }
 
-export function DashboardShell({ children, itemTypes, collections, user }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  itemTypes,
+  collections,
+  searchItems,
+  user,
+}: DashboardShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -31,7 +38,12 @@ export function DashboardShell({ children, itemTypes, collections, user }: Dashb
           user={user}
         />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <TopBar itemTypes={itemTypes} onMobileMenuClick={() => setMobileSidebarOpen(true)} />
+          <TopBar
+            itemTypes={itemTypes}
+            searchItems={searchItems}
+            collections={collections}
+            onMobileMenuClick={() => setMobileSidebarOpen(true)}
+          />
           {children}
         </div>
       </div>
