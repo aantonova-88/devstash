@@ -68,6 +68,7 @@ Example v4 configuration:
 
 - Tailwind CSS for all styling
 - Use shadcn/ui components where applicable
+- After every `npx shadcn add`, run `npm uninstall cn` — the registry lists the `cn` npm package as a dependency, but this project's helper lives in `@/lib/utils`. Generated files also import `{ cn } from "cn"`; fix them to `@/lib/utils` (`npm run lint` flags any that are missed)
 - No inline styles
 - Dark mode first, light mode as option
 
