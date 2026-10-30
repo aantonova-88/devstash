@@ -32,6 +32,7 @@ const {
   getItemsByType,
   getItemsByCollection,
   getProfileStats,
+  getSearchItems,
 } = await import("@/lib/db/items")
 
 const TYPE = {
@@ -842,5 +843,54 @@ describe("getItemsByCollection", () => {
     const json = JSON.stringify(item)
     expect(json).not.toContain("user_1/files/abc.pdf")
     expect(json).not.toContain("userId")
+  })
+})
+
+describe("getSearchItems", () => {
+  const PALETTE_TYPE = { name: "Snippet", icon: "Code", color: "#3b82f6" }
+
+  it("scopes to the user and selects only the searchable fields", async () => {
+    findMany.mockResolvedValue([])
+
+    await getSearchItems("user_1")
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        url: true,
+        fileName: true,
+        type: { select: { name: true, icon: true, color: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    })
+  })
+
+  it("returns a trimmed preview and never the full content", async () => {
+    const content = `const a = 1\n\n${"x".repeat(500)}`
+    findMany.mockResolvedValue([
+      { id: "i1", title: "Long", content, url: null, fileName: null, type: PALETTE_TYPE },
+    ])
+
+    const [item] = await getSearchItems("user_1")
+
+    expect(Object.keys(item).sort()).toEqual(["id", "preview", "title", "type"])
+    expect(item.preview?.startsWith("const a = 1 xxx")).toBe(true)
+    expect(item.preview?.length).toBeLessThan(content.length)
+    expect(JSON.stringify(item)).not.toContain(content)
+  })
+
+  it("falls back to the url, then the file name, then null", async () => {
+    findMany.mockResolvedValue([
+      { id: "l", title: "Link", content: null, url: "https://a.dev", fileName: null, type: PALETTE_TYPE },
+      { id: "f", title: "File", content: null, url: null, fileName: "notes.pdf", type: PALETTE_TYPE },
+      { id: "e", title: "Empty", content: "  ", url: null, fileName: null, type: PALETTE_TYPE },
+    ])
+
+    const items = await getSearchItems("user_1")
+
+    expect(items.map((item) => item.preview)).toEqual(["https://a.dev", "notes.pdf", null])
   })
 })

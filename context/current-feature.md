@@ -1,16 +1,33 @@
-# Current Feature
+# Current Feature: Global Search / Command Palette
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- Global command palette opens with Cmd+K (Mac) / Ctrl+K (Windows/Linux) from any shell page (dashboard, items, collections, profile)
+- Fuzzy search across all of the user's items and collections, client-side with no server round-trips per keystroke
+- Results grouped into an **Items** section and a **Collections** section
+- Keyboard navigation: arrow keys move, Enter selects, Escape closes
+- Items show their type icon (in the type color); collections show their item count
+- Selecting an item opens it in the item drawer; selecting a collection navigates to `/collections/<id>`
+- Clicking the TopBar search input opens the palette
+- The search input placeholder shows a ⌘K hint
+- Unit tests for any new query / utility (e.g. the search-data query and content-preview trimming)
 
 ## Notes
 
-None
+- Spec: `context/features/global-search-spec.md`
+- Use the shadcn `command` component (`cmdk`). Watch the known generator quirks: broken `import { cn } from "cn"` and attempts to overwrite `button.tsx` (custom `xs` size). The project uses the `base-nova` style (Base UI, `render` prop rather than `asChild`)
+- Search data (items: id, title, type, content preview; collections: id, name, itemCount) is pre-fetched on app load — i.e. in the shell layouts, which already fetch sidebar data in parallel, and passed into `DashboardShell` (which already feeds `TopBar` and `CollectionOptionsProvider`)
+- Reuse existing fetching: collections come from the `cache()`-wrapped `getRecentCollections` (already has `itemCount`, so no extra query). No existing query returns *all* items, so a lean `getSearchItems(userId)` is needed — select only the fields above, never full `content` or `fileUrl` (R2 key), keeping the audit's "full content in card payloads" concern from spreading to every page
+- Content preview must be trimmed server-side to a short snippet; FILE items have no content (could fall back to `fileName`)
+- **The item drawer has no URL** — it lives as local state inside each `ItemGrid`. The palette therefore needs its own `ItemDrawer` mount (e.g. owned by the palette / shell), opening the selected item on the current page rather than navigating
+- cmdk's built-in filter is fuzzy (command-score); the item `value` / `keywords` should include title, type name and the content preview so all three are searchable
+- Data is a snapshot from the last server render; `router.refresh()` after create/edit/delete already re-runs the layouts, so it stays fresh without extra work
+- Prevent the browser's default Ctrl+K (focus address bar in some browsers) when opening
+- Out of scope: server-side search, searching tags, recent searches, actions/commands in the palette
 
 ## History
 

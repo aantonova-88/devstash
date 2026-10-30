@@ -1,5 +1,6 @@
 import { cache } from "react"
 import { prisma } from "@/lib/prisma"
+import { searchPreview } from "@/lib/search"
 
 export interface SidebarItemType {
   id: string
@@ -215,6 +216,41 @@ export async function getItemsByCollection(
   })
 
   return items.map(serializeItem)
+}
+
+export interface SearchItem {
+  id: string
+  title: string
+  /** Short whitespace-collapsed excerpt — never the full content. */
+  preview: string | null
+  type: { name: string; icon: string; color: string }
+}
+
+/**
+ * Every item the user owns, reduced to what the command palette searches.
+ * Only a trimmed preview leaves the server: this runs in every shell layout,
+ * so full content (or the R2 key in `fileUrl`) would ride along on every page.
+ */
+export async function getSearchItems(userId: string): Promise<SearchItem[]> {
+  const items = await prisma.item.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      url: true,
+      fileName: true,
+      type: { select: { name: true, icon: true, color: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+  })
+
+  return items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    preview: searchPreview(item),
+    type: item.type,
+  }))
 }
 
 export async function getItemStats(userId: string): Promise<ItemStats> {
