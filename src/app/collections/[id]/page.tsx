@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation"
-import { File, FolderOpen, Star } from "lucide-react"
+import { File, FolderOpen } from "lucide-react"
 import { auth } from "@/auth"
 import { getCollectionById } from "@/lib/db/collections"
 import { getItemsByCollection } from "@/lib/db/items"
 import { countItemsByType, groupCollectionItems } from "@/lib/collection-items"
 import { ICON_MAP } from "@/lib/icons"
 import { ItemGrid } from "@/components/items/ItemGrid"
+import { CollectionActions } from "@/components/collections/CollectionActions"
 
 export default async function CollectionPage({
   params,
@@ -33,16 +34,10 @@ export default async function CollectionPage({
         <span className="flex h-9 w-9 items-center justify-center rounded-lg shrink-0 bg-muted text-muted-foreground">
           <FolderOpen className="h-4.5 w-4.5" />
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight truncate">{collection.name}</h1>
-            {collection.isFavorite && (
-              <Star
-                className="h-4 w-4 shrink-0 fill-yellow-400 text-yellow-400"
-                aria-label="Favorite"
-              />
-            )}
-          </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-bold tracking-tight break-words sm:truncate">
+            {collection.name}
+          </h1>
           <p className="text-sm text-muted-foreground">
             {items.length} {items.length === 1 ? "item" : "items"}
           </p>
@@ -67,6 +62,7 @@ export default async function CollectionPage({
             </div>
           )}
         </div>
+        <CollectionActions collection={collection} />
       </div>
 
       {/* Items */}

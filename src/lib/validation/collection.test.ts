@@ -3,6 +3,7 @@ import {
   COLLECTION_DESCRIPTION_MAX_LENGTH,
   COLLECTION_NAME_MAX_LENGTH,
   createCollectionSchema,
+  updateCollectionSchema,
 } from "@/lib/validation/collection"
 
 describe("createCollectionSchema", () => {
@@ -56,5 +57,43 @@ describe("createCollectionSchema", () => {
     const result = createCollectionSchema.parse({ name: "Docs", userId: "someone-else" })
 
     expect(result).not.toHaveProperty("userId")
+  })
+})
+
+describe("updateCollectionSchema", () => {
+  it("applies the same trim and empty → null rules as create", () => {
+    expect(updateCollectionSchema.parse({ name: "  Docs  ", description: "   " })).toEqual({
+      name: "Docs",
+      description: null,
+    })
+  })
+
+  it("rejects a blank or over-long name with the same messages as create", () => {
+    for (const name of ["   ", "a".repeat(COLLECTION_NAME_MAX_LENGTH + 1)]) {
+      const update = updateCollectionSchema.safeParse({ name })
+      const create = createCollectionSchema.safeParse({ name })
+      expect(update.success).toBe(false)
+      expect(update.error?.issues[0].message).toBe(create.error?.issues[0].message)
+    }
+  })
+
+  it("rejects an over-long description", () => {
+    const result = updateCollectionSchema.safeParse({
+      name: "Docs",
+      description: "a".repeat(COLLECTION_DESCRIPTION_MAX_LENGTH + 1),
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it("strips unknown keys such as a client-sent id or userId", () => {
+    const result = updateCollectionSchema.parse({
+      name: "Docs",
+      id: "other",
+      userId: "attacker",
+      isFavorite: true,
+    })
+
+    expect(result).toEqual({ name: "Docs", description: null })
   })
 })

@@ -4,12 +4,21 @@ const findMany = vi.fn()
 const create = vi.fn()
 const count = vi.fn()
 const findFirst = vi.fn()
+const update = vi.fn()
+const del = vi.fn()
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { collection: { findMany, create, count, findFirst } },
+  prisma: { collection: { findMany, create, count, findFirst, update, delete: del } },
 }))
 
-const { getRecentCollections, createCollection, ownsCollections, getCollectionById } = await import(
+const {
+  getRecentCollections,
+  createCollection,
+  ownsCollections,
+  getCollectionById,
+  updateCollection,
+  deleteCollection,
+} = await import(
   "@/lib/db/collections"
 )
 
@@ -32,6 +41,8 @@ beforeEach(() => {
   create.mockReset()
   count.mockReset()
   findFirst.mockReset()
+  update.mockReset()
+  del.mockReset()
 })
 
 describe("getRecentCollections", () => {
@@ -160,5 +171,66 @@ describe("getCollectionById", () => {
     findFirst.mockResolvedValue(null)
 
     expect(await getCollectionById("user-1", "someone-elses")).toBeNull()
+  })
+})
+
+function prismaError(code: string) {
+  return Object.assign(new Error(code), { code })
+}
+
+describe("updateCollection", () => {
+  const SUMMARY = { id: "col-1", name: "Docs", description: null, isFavorite: false }
+
+  it("scopes the update to the user and writes only name and description", async () => {
+    update.mockResolvedValue(SUMMARY)
+
+    const result = await updateCollection("user-1", "col-1", { name: "Docs", description: null })
+
+    expect(result).toEqual(SUMMARY)
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "col-1", userId: "user-1" },
+      data: { name: "Docs", description: null },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    })
+  })
+
+  it("returns null for a foreign or unknown id (P2025)", async () => {
+    update.mockRejectedValue(prismaError("P2025"))
+
+    expect(await updateCollection("user-1", "col-x", { name: "Docs", description: null })).toBeNull()
+  })
+
+  it("rethrows other Prisma errors", async () => {
+    update.mockRejectedValue(prismaError("P1001"))
+
+    await expect(
+      updateCollection("user-1", "col-1", { name: "Docs", description: null })
+    ).rejects.toThrow("P1001")
+  })
+})
+
+describe("deleteCollection", () => {
+  it("deletes only the collection row, scoped to the user", async () => {
+    del.mockResolvedValue({ id: "col-1", name: "Docs" })
+
+    const result = await deleteCollection("user-1", "col-1")
+
+    expect(result).toEqual({ id: "col-1", name: "Docs" })
+    expect(del).toHaveBeenCalledWith({
+      where: { id: "col-1", userId: "user-1" },
+      select: { id: true, name: true },
+    })
+  })
+
+  it("returns null for a foreign or unknown id (P2025)", async () => {
+    del.mockRejectedValue(prismaError("P2025"))
+
+    expect(await deleteCollection("user-1", "col-x")).toBeNull()
+  })
+
+  it("rethrows other Prisma errors", async () => {
+    del.mockRejectedValue(prismaError("P1001"))
+
+    await expect(deleteCollection("user-1", "col-1")).rejects.toThrow("P1001")
   })
 })

@@ -7,35 +7,57 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { createCollection } from "@/actions/collections"
 import { Field } from "@/components/items/Field"
 import {
   COLLECTION_DESCRIPTION_MAX_LENGTH,
   COLLECTION_NAME_MAX_LENGTH,
 } from "@/lib/validation/collection"
+import type { ActionResult } from "@/actions/items"
 
-interface CreateCollectionFormProps {
+export interface CollectionFormValues {
+  name: string
+  description: string
+}
+
+interface CollectionFormProps {
+  /** Prefixes the field ids so the create and edit dialogs cannot collide. */
+  idPrefix: string
+  initialValues?: CollectionFormValues
+  submitLabel: string
+  pendingLabel: string
+  onSubmit: (values: CollectionFormValues) => Promise<ActionResult<{ name: string }>>
+  successMessage: (name: string) => string
   onCancel: () => void
-  onCreated: () => void
+  onSaved: () => void
 }
 
 /**
- * New-collection form for the create dialog. Controlled inputs and no form
- * library, matching the item forms; Zod in the action owns validation.
+ * Name + description form shared by the create and edit dialogs. Controlled
+ * inputs and no form library, matching the item forms; Zod in the action owns
+ * validation.
  */
-export function CreateCollectionForm({ onCancel, onCreated }: CreateCollectionFormProps) {
+export function CollectionForm({
+  idPrefix,
+  initialValues = { name: "", description: "" },
+  submitLabel,
+  pendingLabel,
+  onSubmit,
+  successMessage,
+  onCancel,
+  onSaved,
+}: CollectionFormProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
+  const [name, setName] = useState(initialValues.name)
+  const [description, setDescription] = useState(initialValues.description)
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError(null)
 
     startTransition(async () => {
-      const result = await createCollection({ name, description })
+      const result = await onSubmit({ name, description })
 
       if (!result.success) {
         setError(result.error)
@@ -43,9 +65,9 @@ export function CreateCollectionForm({ onCancel, onCreated }: CreateCollectionFo
         return
       }
 
-      toast.success(`${result.data.name} created`)
-      onCreated()
-      // Refreshes the sidebar collections and the dashboard grid and stats.
+      toast.success(successMessage(result.data.name))
+      onSaved()
+      // Refreshes the sidebar collections, the grids and the stats.
       router.refresh()
     })
   }
@@ -53,9 +75,9 @@ export function CreateCollectionForm({ onCancel, onCreated }: CreateCollectionFo
   return (
     <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-4 overflow-auto px-1 pb-1">
-        <Field label="Name" htmlFor="new-collection-name">
+        <Field label="Name" htmlFor={`${idPrefix}-name`}>
           <Input
-            id="new-collection-name"
+            id={`${idPrefix}-name`}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. React Patterns"
@@ -65,9 +87,9 @@ export function CreateCollectionForm({ onCancel, onCreated }: CreateCollectionFo
           />
         </Field>
 
-        <Field label="Description" htmlFor="new-collection-description">
+        <Field label="Description" htmlFor={`${idPrefix}-description`}>
           <Textarea
-            id="new-collection-description"
+            id={`${idPrefix}-description`}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What belongs in this collection?"
@@ -96,7 +118,7 @@ export function CreateCollectionForm({ onCancel, onCreated }: CreateCollectionFo
         </Button>
         <Button type="submit" className="flex-1" disabled={pending || name.trim() === ""}>
           {pending && <Loader2 className="animate-spin" />}
-          {pending ? "Creating…" : "Create collection"}
+          {pending ? pendingLabel : submitLabel}
         </Button>
       </div>
     </form>
