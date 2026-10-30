@@ -1,6 +1,9 @@
 import { cache } from "react"
 import { prisma } from "@/lib/prisma"
-import type { CreateCollectionData } from "@/lib/validation/collection"
+import type {
+  CreateCollectionData,
+  UpdateCollectionData,
+} from "@/lib/validation/collection"
 
 export interface CollectionWithMeta {
   id: string
@@ -118,6 +121,53 @@ export async function createCollection(
     },
     select: { id: true, name: true, description: true },
   })
+}
+
+/**
+ * Update the metadata of a collection owned by `userId`. Ownership is the
+ * `userId` in the `where` clause, so another user's id raises P2025 exactly
+ * like an unknown one and this returns null.
+ */
+export async function updateCollection(
+  userId: string,
+  collectionId: string,
+  fields: UpdateCollectionData
+): Promise<CollectionSummary | null> {
+  try {
+    return await prisma.collection.update({
+      where: { id: collectionId, userId },
+      data: { name: fields.name, description: fields.description },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    })
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2025") return null
+    throw err
+  }
+}
+
+export interface DeletedCollection {
+  id: string
+  name: string
+}
+
+/**
+ * Delete a collection owned by `userId`, or return null for a foreign or
+ * unknown id. Only the `ItemCollection` membership rows cascade — the items
+ * themselves are untouched and stay in the user's library.
+ */
+export async function deleteCollection(
+  userId: string,
+  collectionId: string
+): Promise<DeletedCollection | null> {
+  try {
+    return await prisma.collection.delete({
+      where: { id: collectionId, userId },
+      select: { id: true, name: true },
+    })
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2025") return null
+    throw err
+  }
 }
 
 /**

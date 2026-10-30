@@ -1,16 +1,31 @@
-# Current Feature
+# Current Feature: Collection Edit, Delete & Favorite Actions
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- `/collections/[id]` header gains three actions: **Edit**, **Delete** and **Favorite**
+- **Edit** opens a modal dialog to edit the collection's metadata (name, description), pre-filled with current values; saves via a server action, toasts, and refreshes the page and sidebar
+- **Delete** opens a confirmation dialog; on confirm the collection is deleted and the user is redirected away (e.g. to `/collections`) with a toast
+- Deleting a collection must **NOT delete its items** — only the `ItemCollection` membership rows go (they cascade via the schema); the items themselves remain and are still reachable from their type pages / dashboard
+- **Favorite** is a button/icon only (star reflecting `isFavorite`) — no toggle mutation in this slice
+- Collection cards on `/collections` and the dashboard get a **3-dots (`MoreHorizontal`) menu** opening a dropdown with Edit, Delete and Favorite; Edit/Delete open the same dialogs as the collection page, Favorite is inert
+- Clicking anywhere else on a card still navigates to `/collections/<id>`; opening or using the menu must not trigger navigation
+- Edit and delete are ownership-scoped (`where: { id, userId }`), foreign and unknown ids indistinguishable (P2025 → `null`), following `updateItem` / `deleteItem`
+- Unit tests for the new validation schema, db queries and server actions
 
 ## Notes
 
-None
+- Reuse `COLLECTION_NAME_MAX_LENGTH` / `COLLECTION_DESCRIPTION_MAX_LENGTH` from `src/lib/validation/collection.ts`; an `updateCollectionSchema` should share rules with `createCollectionSchema` (same pattern as `itemFields` shared by item create/update)
+- New `updateCollection` / `deleteCollection` in `src/lib/db/collections.ts` and `src/actions/collections.ts`, following the `auth()` → Zod → query → `revalidatePath("/", "layout")` → `{ success, data, error }` shape — collections render in every shell's sidebar
+- The edit form can likely be shared with `CreateCollectionForm` (name + description fields) rather than duplicated
+- Delete confirmation follows `DeleteItemDialog` (controlled shadcn `AlertDialog`); the dialog text should say items are kept
+- `CollectionCard` is currently a server-rendered `next/link` wrapping the whole card, with a star in the top-right. A dropdown trigger cannot nest inside an `<a>`, so the card likely needs restructuring (e.g. a stretched link / overlay link with the menu button positioned above it, or a client card with `router.push`) — keep keyboard focus and the existing focus ring working
+- No dropdown primitive is installed yet — add shadcn `dropdown-menu` (watch for the known generator quirks: broken `import { cn } from "cn"` and attempts to overwrite `button.tsx`, which carries the custom `xs` size)
+- Favorite is UI only: render it but leave it inert/disabled — a future slice adds the toggle
+- Out of scope: favorite toggle, free-tier collection limit, removing individual items from a collection
 
 ## History
 

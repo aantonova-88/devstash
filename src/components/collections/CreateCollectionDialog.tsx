@@ -11,7 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { CreateCollectionForm } from "@/components/collections/CreateCollectionForm"
+import { CollectionForm } from "@/components/collections/CollectionForm"
+import { createCollection } from "@/actions/collections"
 
 /**
  * Owns the top bar's "New collection" button and the dialog it opens. The form
@@ -45,9 +46,14 @@ export function CreateCollectionDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <CreateCollectionForm
+        <CollectionForm
+          idPrefix="new-collection"
+          submitLabel="Create collection"
+          pendingLabel="Creating…"
+          onSubmit={createCollection}
+          successMessage={(name) => `${name} created`}
           onCancel={() => setOpen(false)}
-          onCreated={() => setOpen(false)}
+          onSaved={() => setOpen(false)}
         />
       </DialogContent>
     </Dialog>
