@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   LogOut,
   User,
+  Settings,
   Plus,
   ChevronRight,
   Star,
@@ -242,6 +243,14 @@ function UserMenu({ user, collapsed }: { user: SidebarUser; collapsed: boolean }
       >
         <User className="h-3.5 w-3.5" />
         Profile
+      </Link>
+      <Link
+        href="/settings"
+        onClick={() => setOpen(false)}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+      >
+        <Settings className="h-3.5 w-3.5" />
+        Settings
       </Link>
       <button
         onClick={handleSignOut}

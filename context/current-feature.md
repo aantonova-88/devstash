@@ -1,16 +1,27 @@
-# Current Feature
+# Current Feature: Settings Page
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- New `/settings` route rendering inside the dashboard shell (sidebar + top bar), following the `/profile` layout pattern
+- `/settings` is protected: added to the `authorized` path list in `src/auth.config.ts`, plus a session check / `redirect("/sign-in")` in the page or layout
+- The sidebar's user-avatar dropdown gains a **Settings** link (between Profile and Sign out) that closes the menu on click
+- The **Account** section (`ChangePasswordCard` — shown only when the user has a password — and `DeleteAccountCard`) moves from `/profile` to `/settings`; `/profile` keeps identity, usage stats and the type breakdown
+- `/profile` header copy no longer mentions security settings
+- Existing change-password and delete-account behaviour is unchanged (same API routes, same delete → `signOut()` → `/sign-in?deleted=1` flow)
 
 ## Notes
 
-None
+- The request says "delete account and forgot password", but the profile's account actions are **Change password** and **Delete account** — forgot password is the signed-out `/forgot-password` flow and stays where it is. Treating "forgot password" as change password
+- `/settings` was previously listed as planned ("Preferences, export") in `context/project-overview.md`; preferences and export are not part of this slice — update the routing table to mark `/settings` as built with the account actions
+- Settings needs `hasPassword` and `email` — reuse `getProfileUser(userId)` from `src/lib/db/users.ts`
+- The shell layout would be a fifth copy (dashboard, items, profile, collections); the route-group refactor is still deferred, so copy `src/app/profile/layout.tsx`
+- Sidebar menu uses lucide `User` / `LogOut`; use `Settings` for the new link
+- No new server actions or utilities expected, so likely no new unit tests — browser verification covers the page and menu
+- Verify at 1440px and 375px: link from the dropdown (expanded and collapsed sidebar), signed-out `/settings` redirects to sign-in, both cards work on `/settings`, and they are gone from `/profile`
 
 ## History
 
