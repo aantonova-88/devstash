@@ -13,6 +13,8 @@ vi.mock("@/lib/prisma", () => ({
 
 const {
   getRecentCollections,
+  getCollectionsPage,
+  getCollectionStats,
   createCollection,
   ownsCollections,
   getCollectionById,
@@ -79,6 +81,41 @@ describe("getRecentCollections", () => {
     expect(result.dominantColor).toBe("#6b7280")
     expect(result.dominantIcon).toBe("FolderOpen")
     expect(result.typeIcons).toEqual([])
+  })
+})
+
+describe("getCollectionsPage", () => {
+  it("fetches only the requested window, scoped to the user, in a total order", async () => {
+    findMany.mockResolvedValue([])
+    await getCollectionsPage("user-1", { skip: 21, take: 21 })
+
+    const args = findMany.mock.calls[0][0]
+    expect(args.where).toEqual({ userId: "user-1" })
+    expect(args.skip).toBe(21)
+    expect(args.take).toBe(21)
+    expect(args.orderBy).toEqual([{ updatedAt: "desc" }, { id: "asc" }])
+  })
+
+  it("serializes cards like getRecentCollections", async () => {
+    findMany.mockResolvedValue([collection("c1", [NOTE, SNIPPET, SNIPPET])])
+    const [result] = await getCollectionsPage("user-2", { skip: 0, take: 6 })
+
+    expect(result.itemCount).toBe(3)
+    expect(result.dominantColor).toBe(SNIPPET.color)
+    expect(result.typeIcons).toEqual([SNIPPET, NOTE])
+  })
+})
+
+describe("getCollectionStats", () => {
+  it("counts all and favorite collections for the user", async () => {
+    count.mockResolvedValueOnce(8).mockResolvedValueOnce(3)
+
+    expect(await getCollectionStats("user-1")).toEqual({
+      totalCollections: 8,
+      favoriteCollectionsCount: 3,
+    })
+    expect(count).toHaveBeenCalledWith({ where: { userId: "user-1" } })
+    expect(count).toHaveBeenCalledWith({ where: { userId: "user-1", isFavorite: true } })
   })
 })
 

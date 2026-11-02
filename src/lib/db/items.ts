@@ -1,6 +1,8 @@
 import { cache } from "react"
 import { prisma } from "@/lib/prisma"
 import { searchPreview } from "@/lib/search"
+import { DASHBOARD_RECENT_ITEMS_LIMIT, type PageWindow } from "@/lib/pagination"
+import type { Prisma } from "@/generated/prisma/client"
 
 export interface SidebarItemType {
   id: string
@@ -80,7 +82,10 @@ export async function getPinnedItems(userId: string): Promise<ItemWithMeta[]> {
   return items.map(serializeItem)
 }
 
-export async function getRecentItems(userId: string, limit = 10): Promise<ItemWithMeta[]> {
+export async function getRecentItems(
+  userId: string,
+  limit = DASHBOARD_RECENT_ITEMS_LIMIT
+): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId },
     include: itemCardInclude,
@@ -179,18 +184,27 @@ export async function getSystemItemTypeById(
   })
 }
 
+/**
+ * List order for the type and collection pages. The trailing `id` makes it
+ * total, so `skip`/`take` pages never repeat or drop a row that ties on dates.
+ */
+const listOrderBy = [
+  { isPinned: "desc" },
+  { lastUsedAt: { sort: "desc", nulls: "last" } },
+  { updatedAt: "desc" },
+  { id: "asc" },
+] as const satisfies Prisma.ItemOrderByWithRelationInput[]
+
 export async function getItemsByType(
   userId: string,
-  typeId: string
+  typeId: string,
+  window?: PageWindow
 ): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId, typeId },
     include: itemCardInclude,
-    orderBy: [
-      { isPinned: "desc" },
-      { lastUsedAt: { sort: "desc", nulls: "last" } },
-      { updatedAt: "desc" },
-    ],
+    orderBy: [...listOrderBy],
+    ...window,
   })
 
   return items.map(serializeItem)
@@ -203,19 +217,56 @@ export async function getItemsByType(
  */
 export async function getItemsByCollection(
   userId: string,
-  collectionId: string
+  collectionId: string,
+  window?: PageWindow
 ): Promise<ItemWithMeta[]> {
   const items = await prisma.item.findMany({
     where: { userId, collections: { some: { collectionId } } },
     include: itemCardInclude,
-    orderBy: [
-      { isPinned: "desc" },
-      { lastUsedAt: { sort: "desc", nulls: "last" } },
-      { updatedAt: "desc" },
-    ],
+    orderBy: [...listOrderBy],
+    ...window,
   })
 
   return items.map(serializeItem)
+}
+
+export interface CollectionTypeCount {
+  type: { name: string; slug: string; icon: string; color: string }
+  count: number
+}
+
+/**
+ * Per-type item counts for a whole collection, most common first (ties by
+ * type order). Counted in the database so they stay correct when the page
+ * only loads one slice of the items; the counts also sum to the total.
+ */
+export async function getCollectionTypeCounts(
+  userId: string,
+  collectionId: string
+): Promise<CollectionTypeCount[]> {
+  const groups = await prisma.item.groupBy({
+    by: ["typeId"],
+    where: { userId, collections: { some: { collectionId } } },
+    _count: true,
+  })
+  if (groups.length === 0) return []
+
+  const types = await prisma.itemType.findMany({
+    where: { id: { in: groups.map((g) => g.typeId) } },
+    select: { id: true, name: true, slug: true, icon: true, color: true, order: true },
+  })
+  const typeById = new Map(types.map((type) => [type.id, type]))
+
+  return groups
+    .flatMap((group) => {
+      const type = typeById.get(group.typeId)
+      return type ? [{ type, count: group._count }] : []
+    })
+    .sort((a, b) => b.count - a.count || a.type.order - b.type.order)
+    .map(({ type: { name, slug, icon, color }, count }) => ({
+      type: { name, slug, icon, color },
+      count,
+    }))
 }
 
 export interface SearchItem {

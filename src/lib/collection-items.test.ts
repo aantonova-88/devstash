@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { countItemsByType, groupCollectionItems } from "@/lib/collection-items"
+import { groupCollectionItems } from "@/lib/collection-items"
 import type { ItemWithMeta } from "@/lib/db/items"
 
 const TYPES = {
@@ -60,45 +60,5 @@ describe("groupCollectionItems", () => {
 
   it("returns three empty groups for an empty collection", () => {
     expect(groupCollectionItems([])).toEqual({ images: [], files: [], others: [] })
-  })
-})
-
-describe("countItemsByType", () => {
-  it("counts per type, most common first", () => {
-    // The most common type is seen last, so insertion order alone would fail.
-    const counts = countItemsByType([
-      item("i1", "images"),
-      item("s1", "snippets"),
-      item("l1", "links"),
-      item("s2", "snippets"),
-      item("l2", "links"),
-      item("l3", "links"),
-    ])
-
-    expect(counts.map(({ type, count }) => [type.slug, count])).toEqual([
-      ["links", 3],
-      ["snippets", 2],
-      ["images", 1],
-    ])
-  })
-
-  it("keeps first-seen order for tied counts", () => {
-    const counts = countItemsByType([
-      item("f1", "files"),
-      item("s1", "snippets"),
-      item("i1", "images"),
-    ])
-
-    expect(counts.map(({ type }) => type.slug)).toEqual(["files", "snippets", "images"])
-  })
-
-  it("carries the type's icon and color for the header", () => {
-    const [entry] = countItemsByType([item("i1", "images")])
-
-    expect(entry.type).toEqual(TYPES.images)
-  })
-
-  it("returns nothing for no items", () => {
-    expect(countItemsByType([])).toEqual([])
   })
 })

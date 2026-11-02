@@ -31,6 +31,7 @@ const {
   getItemFile,
   getItemsByType,
   getItemsByCollection,
+  getCollectionTypeCounts,
   getProfileStats,
   getSearchItems,
 } = await import("@/lib/db/items")
@@ -807,6 +808,76 @@ describe("getProfileStats", () => {
   })
 })
 
+describe("getItemsByType (paging)", () => {
+  it("fetches only the requested window, with a total order so pages never overlap", async () => {
+    findMany.mockResolvedValue([])
+
+    await getItemsByType("user_1", "type_1", { skip: 21, take: 21 })
+
+    const args = findMany.mock.calls[0][0]
+    expect(args.skip).toBe(21)
+    expect(args.take).toBe(21)
+    expect(args.orderBy.at(-1)).toEqual({ id: "asc" })
+  })
+})
+
+describe("getCollectionTypeCounts", () => {
+  const SNIPPET_TYPE = { id: "t_snip", name: "Snippet", slug: "snippets", icon: "Code", color: "#3b82f6", order: 0 }
+  const NOTE_TYPE = { id: "t_note", name: "Note", slug: "notes", icon: "StickyNote", color: "#fde047", order: 3 }
+  const LINK_TYPE = { id: "t_link", name: "Link", slug: "links", icon: "Link", color: "#10b981", order: 6 }
+
+  it("counts the whole collection in the database, scoped to the user", async () => {
+    groupBy.mockResolvedValue([])
+
+    await getCollectionTypeCounts("user_1", "col_1")
+
+    expect(groupBy).toHaveBeenCalledWith({
+      by: ["typeId"],
+      where: { userId: "user_1", collections: { some: { collectionId: "col_1" } } },
+      _count: true,
+    })
+  })
+
+  it("returns no counts and skips the type lookup for an empty collection", async () => {
+    groupBy.mockResolvedValue([])
+
+    expect(await getCollectionTypeCounts("user_1", "col_1")).toEqual([])
+    expect(itemTypeFindMany).not.toHaveBeenCalled()
+  })
+
+  it("sorts most common first, breaking ties by type order", async () => {
+    groupBy.mockResolvedValue([
+      { typeId: "t_link", _count: 2 },
+      { typeId: "t_note", _count: 2 },
+      { typeId: "t_snip", _count: 5 },
+    ])
+    itemTypeFindMany.mockResolvedValue([LINK_TYPE, NOTE_TYPE, SNIPPET_TYPE])
+
+    const counts = await getCollectionTypeCounts("user_1", "col_1")
+
+    expect(itemTypeFindMany.mock.calls[0][0].where).toEqual({
+      id: { in: ["t_link", "t_note", "t_snip"] },
+    })
+    expect(counts.map(({ type, count }) => [type.slug, count])).toEqual([
+      ["snippets", 5],
+      ["notes", 2],
+      ["links", 2],
+    ])
+  })
+
+  it("returns only the card type fields", async () => {
+    groupBy.mockResolvedValue([{ typeId: "t_snip", _count: 1 }])
+    itemTypeFindMany.mockResolvedValue([SNIPPET_TYPE])
+
+    const [entry] = await getCollectionTypeCounts("user_1", "col_1")
+
+    expect(entry).toEqual({
+      type: { name: "Snippet", slug: "snippets", icon: "Code", color: "#3b82f6" },
+      count: 1,
+    })
+  })
+})
+
 describe("getItemsByCollection", () => {
   it("scopes to both the user and the collection, ordered like the type pages", async () => {
     findMany.mockResolvedValue([])
@@ -822,7 +893,20 @@ describe("getItemsByCollection", () => {
       { isPinned: "desc" },
       { lastUsedAt: { sort: "desc", nulls: "last" } },
       { updatedAt: "desc" },
+      { id: "asc" },
     ])
+    expect(args).not.toHaveProperty("skip")
+    expect(args).not.toHaveProperty("take")
+  })
+
+  it("fetches only the requested page window", async () => {
+    findMany.mockResolvedValue([])
+
+    await getItemsByCollection("user_1", "col_1", { skip: 42, take: 21 })
+
+    const args = findMany.mock.calls[0][0]
+    expect(args.skip).toBe(42)
+    expect(args.take).toBe(21)
   })
 
   it("serializes cards without leaking the R2 key or user id", async () => {

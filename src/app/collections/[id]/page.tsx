@@ -2,29 +2,41 @@ import { notFound, redirect } from "next/navigation"
 import { File, FolderOpen } from "lucide-react"
 import { auth } from "@/auth"
 import { getCollectionById } from "@/lib/db/collections"
-import { getItemsByCollection } from "@/lib/db/items"
-import { countItemsByType, groupCollectionItems } from "@/lib/collection-items"
+import { getCollectionTypeCounts, getItemsByCollection } from "@/lib/db/items"
+import { groupCollectionItems } from "@/lib/collection-items"
 import { ICON_MAP } from "@/lib/icons"
+import { ITEMS_PER_PAGE, pageHref, pageWindow, parsePage, totalPages } from "@/lib/pagination"
 import { ItemGrid } from "@/components/items/ItemGrid"
 import { CollectionActions } from "@/components/collections/CollectionActions"
+import { Pagination } from "@/components/layout/Pagination"
 
 export default async function CollectionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ page?: string | string[] }>
 }) {
   const session = await auth()
   if (!session?.user?.id) redirect("/sign-in")
 
-  const { id } = await params
-  // Both queries are scoped to the session user, so running the item query
-  // before the ownership check resolves cannot leak another user's items.
-  const [collection, items] = await Promise.all([
+  const [{ id }, { page: rawPage }] = await Promise.all([params, searchParams])
+  const page = parsePage(rawPage)
+  // All three queries are scoped to the session user, so running the item
+  // queries before the ownership check resolves cannot leak another user's items.
+  const [collection, items, typeCounts] = await Promise.all([
     getCollectionById(session.user.id, id),
-    getItemsByCollection(session.user.id, id),
+    getItemsByCollection(session.user.id, id, pageWindow(page, ITEMS_PER_PAGE)),
+    getCollectionTypeCounts(session.user.id, id),
   ])
   if (!collection) notFound()
 
+  const total = typeCounts.reduce((sum, { count }) => sum + count, 0)
+  const pages = totalPages(total, ITEMS_PER_PAGE)
+  const basePath = `/collections/${collection.id}`
+  if (page > pages) redirect(pageHref(basePath, pages))
+
+  // Grouped per page: a page shows whichever blocks its slice of items reaches.
   const { images, files, others } = groupCollectionItems(items)
 
   return (
@@ -39,14 +51,14 @@ export default async function CollectionPage({
             {collection.name}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "item" : "items"}
+            {total} {total === 1 ? "item" : "items"}
           </p>
           {collection.description && (
             <p className="mt-1 text-sm text-muted-foreground/80">{collection.description}</p>
           )}
-          {items.length > 0 && (
+          {typeCounts.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              {countItemsByType(items).map(({ type, count }) => {
+              {typeCounts.map(({ type, count }) => {
                 const Icon = ICON_MAP[type.icon] ?? File
                 return (
                   <span
@@ -91,6 +103,8 @@ export default async function CollectionPage({
               <ItemGrid items={files} layout="list" />
             </section>
           )}
+
+          <Pagination basePath={basePath} page={page} totalPages={pages} />
         </>
       )}
     </main>
