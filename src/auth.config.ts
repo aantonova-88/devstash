@@ -36,6 +36,7 @@ export default {
       const isProtected =
         path.startsWith("/dashboard") ||
         path.startsWith("/profile") ||
+        path.startsWith("/settings") ||
         path.startsWith("/items") ||
         path.startsWith("/collections")
 

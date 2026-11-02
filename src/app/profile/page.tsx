@@ -5,8 +5,6 @@ import { getProfileStats } from "@/lib/db/items"
 import { getProfileUser } from "@/lib/db/users"
 import { ICON_MAP } from "@/lib/icons"
 import { UserAvatar } from "@/components/ui/user-avatar"
-import { ChangePasswordCard } from "@/components/profile/ChangePasswordCard"
-import { DeleteAccountCard } from "@/components/profile/DeleteAccountCard"
 
 const DATE_FMT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -27,15 +25,13 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/sign-in")
 
-  const { hasPassword } = user
-
   return (
     <main className="flex-1 overflow-auto p-6 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your account, view your usage, and update your security settings.
+          Your account details and usage.
         </p>
       </div>
 
@@ -91,15 +87,6 @@ export default async function ProfilePage() {
               </div>
             )
           })}
-        </div>
-      </section>
-
-      {/* Account actions */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Account</h2>
-        <div className="space-y-4">
-          {hasPassword && <ChangePasswordCard />}
-          <DeleteAccountCard userEmail={user.email} />
         </div>
       </section>
     </main>

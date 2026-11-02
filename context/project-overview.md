@@ -449,7 +449,8 @@ Refer to screenshots below as a base for the dashboard UI. It does not have to b
 /collections               → All collections
 /collections/[id]          → Single collection view (edit / delete / favorite)
 
-/profile                   → Account details, usage stats, change password, delete account
+/profile                   → Account details, usage stats
+/settings                  → Account actions: change password, delete account
 
 /api/auth/[...nextauth]    → NextAuth handlers
 /api/auth/oauth/github     → Server-side GitHub sign-in redirect
@@ -470,7 +471,7 @@ Item and collection create / update / delete are Server Actions (`src/actions/`)
 **Planned, not built yet:**
 
 ```
-/settings                  → Preferences, export
+/settings                  → Preferences and export sections (account actions are built)
 /settings/billing          → Stripe subscription management
 /api/ai/tag                → AI auto-tag (Pro)
 /api/ai/summarize          → AI summarize (Pro)
