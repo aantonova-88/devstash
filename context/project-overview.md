@@ -58,7 +58,7 @@ This causes **context switching**, **lost knowledge**, and **inconsistent workfl
 | **Language** | TypeScript |
 | **Database** | [Neon](https://neon.tech/) — serverless PostgreSQL |
 | **ORM** | [Prisma 7](https://www.prisma.io/docs) |
-| **Caching** | Redis _(optional, to be decided)_ |
+| **Rate limiting** | [Upstash Redis](https://upstash.com/) via `@upstash/ratelimit` — auth endpoints only; fails open when unconfigured |
 | **File Storage** | [Cloudflare R2](https://developers.cloudflare.com/r2/) |
 | **Authentication** | [NextAuth v5](https://authjs.dev/) (Email/password + GitHub OAuth) |
 | **AI** | [OpenAI](https://platform.openai.com/) — `gpt-4o-mini` model |
@@ -84,10 +84,10 @@ This causes **context switching**, **lost knowledge**, and **inconsistent workfl
 │  │ Favorites   │   │  Item Drawer (quick access)    │ │
 │  └─────────────┘   └────────────────────────────────┘ │
 │                                                        │
-│         API Routes (/api/*)                            │
-│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────────┐  │
-│  │ Items  │  │  Auth  │  │  Files │  │  AI (Pro)  │  │
-│  └────────┘  └────────┘  └────────┘  └────────────┘  │
+│  Server Actions (src/actions/*)   API Routes (/api/*)  │
+│  ┌──────────────────────────┐  ┌────────┐  ┌───────┐  │
+│  │ Items · Collections CRUD │  │  Auth  │  │ Files │  │
+│  └──────────────────────────┘  └────────┘  └───────┘  │
 └────────────────────────────────────────────────────────┘
          │              │              │
     ┌────▼────┐   ┌─────▼─────┐  ┌────▼──────┐
@@ -97,9 +97,11 @@ This causes **context switching**, **lost knowledge**, and **inconsistent workfl
 ```
 
 **Rendering strategy:**
-- SSR pages for main views (collections, item lists)
-- Dynamic client components for the item drawer, search, and AI interactions
-- API routes for all mutations (create/update/delete items, file uploads, AI calls)
+- SSR pages for main views (dashboard, item lists, collections); server components read through `src/lib/db/*`
+- Client components for interactivity: the item drawer, create/edit dialogs, the card menus and the Cmd+K search palette
+- Mutations are **Server Actions** in `src/actions/` (`items.ts`, `collections.ts`) returning `{ success, data, error }`
+- API routes only where an HTTP endpoint is needed: auth flows (`/api/auth/*`), file upload (`/api/upload`), the item detail fetch for the drawer and the ownership-checked file proxy (`/api/items/[id]`, `/api/items/[id]/file`)
+- Planned (not built): AI endpoints, export, Stripe webhooks
 
 ---
 
@@ -428,13 +430,15 @@ Refer to screenshots below as a base for the dashboard UI. It does not have to b
 
 ```
 /                          → Redirect to /dashboard
-/login                     → Email/password + GitHub OAuth
+/sign-in                   → Email/password + GitHub OAuth
 /register                  → Sign up
+/verify-email              → "Check your email" after registering
+/forgot-password           → Request a password reset email
+/reset-password            → Set a new password (?token=)
 
-/dashboard                 → Overview: recent items, pinned, favorites
+/dashboard                 → Overview: stats, pinned, recent collections, recent items
 
-/items                     → All items
-/items/snippets            → Snippets only
+/items/snippets            → Snippets only (dynamic route /items/[type])
 /items/prompts             → Prompts only
 /items/notes               → Notes only
 /items/commands            → Commands only
@@ -443,14 +447,31 @@ Refer to screenshots below as a base for the dashboard UI. It does not have to b
 /items/images              → Images only (Pro)
 
 /collections               → All collections
-/collections/[id]          → Single collection view
+/collections/[id]          → Single collection view (edit / delete / favorite)
 
-/settings                  → Account, preferences, export
-/settings/billing          → Stripe subscription management
+/profile                   → Account details, usage stats, change password, delete account
 
-/api/items                 → CRUD items
-/api/collections           → CRUD collections
+/api/auth/[...nextauth]    → NextAuth handlers
+/api/auth/oauth/github     → Server-side GitHub sign-in redirect
+/api/auth/register         → Create account
+/api/auth/verify-email     → Consume verification token
+/api/auth/resend-verification
+/api/auth/forgot-password  → Send reset email
+/api/auth/reset-password   → Consume reset token
+/api/auth/change-password
+/api/auth/delete-account
+/api/items/[id]            → Item detail for the drawer (GET)
+/api/items/[id]/file       → Ownership-checked file proxy (streams from R2)
 /api/upload                → File upload → Cloudflare R2
+```
+
+Item and collection create / update / delete are Server Actions (`src/actions/`), not API routes.
+
+**Planned, not built yet:**
+
+```
+/settings                  → Preferences, export
+/settings/billing          → Stripe subscription management
 /api/ai/tag                → AI auto-tag (Pro)
 /api/ai/summarize          → AI summarize (Pro)
 /api/ai/explain            → AI explain code (Pro)
@@ -543,9 +564,12 @@ is mocked with `vi.mock("@/lib/prisma", ...)` so tests never touch Neon.
 
 ### File Uploads (Cloudflare R2)
 
-1. Client requests a **presigned upload URL** from `/api/upload`
-2. Client uploads directly to R2 using the presigned URL (bypasses the Next.js server)
-3. Client confirms upload; server stores `fileUrl`, `fileName`, `fileSize` on the `Item`
+Uploads are **proxied through the server**, not sent to R2 with presigned URLs — XHR still reports progress, no bucket CORS is needed, and the server validates the real bytes.
+
+1. Client `POST`s multipart `file` + `typeSlug` to `/api/upload` (limits: images 5 MB, files 10 MB; rules in `src/lib/validation/file.ts`)
+2. Server stores the object in R2 under `<userId>/<slug>/<uuid>.<ext>` and returns the key
+3. `createItem` re-checks the key's owner/type prefix and reads name and size from R2 itself, then stores them on the `Item`
+4. The bucket is private: `Item.fileUrl` holds the R2 key and never reaches the client — files are served through `/api/items/[id]/file`
 
 ### Environment Variables
 
@@ -567,12 +591,16 @@ RESEND_API_KEY=
 EMAIL_FROM=                       # e.g. "DevStash <hello@yourdomain>"
 EMAIL_VERIFICATION_ENABLED=       # "true" | "false"; defaults: on in prod, off in dev
 
-# Cloudflare R2 (planned — not yet wired)
+# Rate limiting (Upstash Redis) — when unset, auth endpoints are not rate-limited
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
+# Cloudflare R2
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
-R2_PUBLIC_URL=
+R2_PUBLIC_URL=       # currently unused — the bucket is private and files go through the proxy
 
 # OpenAI (planned — not yet wired)
 OPENAI_API_KEY=
@@ -587,4 +615,4 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 
 ---
 
-*Last updated: May 2026*
+*Last updated: November 2026*
