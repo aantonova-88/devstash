@@ -10,7 +10,8 @@ import {
 } from "lucide-react"
 import { auth } from "@/auth"
 import { getPinnedItems, getRecentItems, getItemStats } from "@/lib/db/items"
-import { getRecentCollections } from "@/lib/db/collections"
+import { getCollectionStats, getCollectionsPage } from "@/lib/db/collections"
+import { DASHBOARD_COLLECTIONS_LIMIT, DASHBOARD_RECENT_ITEMS_LIMIT } from "@/lib/pagination"
 import { relativeTime } from "@/lib/utils"
 import { ICON_MAP } from "@/lib/icons"
 import { ItemGrid } from "@/components/items/ItemGrid"
@@ -22,17 +23,17 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect("/sign-in")
 
   const userId = session.user.id
-  const [collections, pinnedItems, recentItems, itemStats] = await Promise.all([
-    getRecentCollections(userId),
+  const [collections, pinnedItems, recentItems, itemStats, collectionStats] = await Promise.all([
+    getCollectionsPage(userId, { skip: 0, take: DASHBOARD_COLLECTIONS_LIMIT }),
     getPinnedItems(userId),
-    getRecentItems(userId, 10),
+    getRecentItems(userId, DASHBOARD_RECENT_ITEMS_LIMIT),
     getItemStats(userId),
+    getCollectionStats(userId),
   ])
 
   const { totalItems, favoriteItemsCount } = itemStats
+  const { totalCollections, favoriteCollectionsCount } = collectionStats
   const firstName = session.user.name?.split(" ")[0] ?? "there"
-  const totalCollections = collections.length
-  const favoriteCollectionsCount = collections.filter((c) => c.isFavorite).length
 
   const STATS = [
     { label: "Total Items", value: totalItems, icon: Package },

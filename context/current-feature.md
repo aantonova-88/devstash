@@ -1,16 +1,25 @@
-# Current Feature
+# Current Feature: Pagination
 
 ## Status
 
-None
+In Progress
 
 ## Goals
 
-None
+- `/items/[type]` and `/collections/[id]` are paginated, with controls at the bottom: numbered page links plus Prev / Next
+- Prev / Next are disabled (greyed out) on the first / last page
+- Constants: `ITEMS_PER_PAGE = 21`, `COLLECTIONS_PER_PAGE = 21`, `DASHBOARD_COLLECTIONS_LIMIT = 6`, `DASHBOARD_RECENT_ITEMS_LIMIT = 10`
+- Queries fetch only the rows the current page needs (`skip` / `take` plus a count), never the full list
+- Dashboard shows at most 6 collections and 10 recent items, using the constants
 
 ## Notes
 
-None
+- Spec: `context/features/pagination-spec.md`
+- **Ambiguity — `/collections` list page:** the spec names only `/items/[type]` and `/collections/[id]`, but `COLLECTIONS_PER_PAGE` only makes sense on `/collections`, so that page is presumably meant to be paginated too. Confirm at `start`
+- Current state: `getItemsByType` and `getItemsByCollection` (`src/lib/db/items.ts`) have no `take`; `getRecentItems(userId, limit = 10)` already takes a limit, called with a literal `10` from `src/app/dashboard/page.tsx`
+- `getRecentCollections` (`src/lib/db/collections.ts`) is unbounded and `cache()`-wrapped; it feeds the sidebar in all four shell layouts, the dashboard grid, the `/collections` page and the search palette. Limiting it in place would truncate the sidebar and search, so the dashboard limit and `/collections` pagination likely need separate paged / limited queries, leaving the shared one alone (or giving the sidebar its own decision)
+- `/collections/[id]` splits items into card / Images / Files blocks (`groupCollectionItems`); pagination applies to the whole ordered item list, so a page may contain only some blocks. The per-type count chips are computed from the loaded items and would need a separate grouped count to stay accurate across pages
+- Page number likely comes from a `?page=` search param; out-of-range or non-numeric values should clamp / fall back rather than error. Page math (clamping, total pages, which page numbers to show) is pure and belongs in `src/lib` with unit tests
 
 ## History
 

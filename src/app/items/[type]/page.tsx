@@ -3,27 +3,37 @@ import { File } from "lucide-react"
 import { auth } from "@/auth"
 import { getItemTypeBySlug, getItemsByType, getSystemItemTypes } from "@/lib/db/items"
 import { ICON_MAP } from "@/lib/icons"
+import { ITEMS_PER_PAGE, pageHref, pageWindow, parsePage, totalPages } from "@/lib/pagination"
 import { CreateItemDialog } from "@/components/items/CreateItemDialog"
 import { ItemGrid } from "@/components/items/ItemGrid"
+import { Pagination } from "@/components/layout/Pagination"
 
 export default async function ItemsByTypePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ type: string }>
+  searchParams: Promise<{ page?: string | string[] }>
 }) {
   const session = await auth()
   if (!session?.user?.id) redirect("/sign-in")
 
-  const { type: slug } = await params
+  const [{ type: slug }, { page: rawPage }] = await Promise.all([params, searchParams])
+  const page = parsePage(rawPage)
   const type = await getItemTypeBySlug(slug)
   if (!type) notFound()
 
   // `getSystemItemTypes` is cache()-wrapped and the shell layout already called
-  // it this request, so the create dialog's type list costs no extra queries.
+  // it this request, so the create dialog's type list — and the per-type count
+  // that sizes the pagination — cost no extra queries.
   const [items, itemTypes] = await Promise.all([
-    getItemsByType(session.user.id, type.id),
+    getItemsByType(session.user.id, type.id, pageWindow(page, ITEMS_PER_PAGE)),
     getSystemItemTypes(session.user.id),
   ])
+  const total = itemTypes.find((t) => t.id === type.id)?.count ?? 0
+  const pages = totalPages(total, ITEMS_PER_PAGE)
+  const basePath = `/items/${slug}`
+  if (page > pages) redirect(pageHref(basePath, pages))
   const Icon = ICON_MAP[type.icon] ?? File
 
   return (
@@ -39,7 +49,7 @@ export default async function ItemsByTypePage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{type.name}s</h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "item" : "items"}
+            {total} {total === 1 ? "item" : "items"}
           </p>
         </div>
 
@@ -62,7 +72,10 @@ export default async function ItemsByTypePage({
           </p>
         </div>
       ) : (
-        <ItemGrid items={items} layout={slug === "files" ? "list" : "grid"} />
+        <>
+          <ItemGrid items={items} layout={slug === "files" ? "list" : "grid"} />
+          <Pagination basePath={basePath} page={page} totalPages={pages} />
+        </>
       )}
     </main>
   )

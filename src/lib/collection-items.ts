@@ -20,19 +20,3 @@ export function groupCollectionItems(items: ItemWithMeta[]): CollectionItemGroup
   }
   return groups
 }
-
-export interface TypeCount {
-  type: ItemWithMeta["type"]
-  count: number
-}
-
-/** Per-type item counts, most common first; ties keep first-seen order. */
-export function countItemsByType(items: ItemWithMeta[]): TypeCount[] {
-  const counts = new Map<string, TypeCount>()
-  for (const item of items) {
-    const entry = counts.get(item.type.slug)
-    if (entry) entry.count++
-    else counts.set(item.type.slug, { type: item.type, count: 1 })
-  }
-  return [...counts.values()].sort((a, b) => b.count - a.count)
-}
